@@ -1,23 +1,26 @@
 import React, { useEffect, useState } from 'react'
-import { Card } from '../components/Card'
-import { Button } from '../components/Button'
+import { motion } from 'motion/react'
+import { Button } from '../components/ui/Button'
 import { api } from '../api/client'
 import {
   ShieldCheck,
-  Globe,
   Save,
   RefreshCw,
-  CheckCircle,
+  CheckCircle2,
   Sliders,
   Moon,
   Sun,
   Monitor,
+  Info,
 } from 'lucide-react'
-import { motion } from 'motion/react'
 import { useTheme, type ThemeMode } from '../components/ThemeProvider'
+import { spring } from '../design/motion'
+
+type SettingsTab = 'appearance' | 'behavior' | 'integrations' | 'about'
 
 export const SettingsScreen: React.FC = () => {
   const { mode, setMode } = useTheme()
+  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -79,201 +82,251 @@ export const SettingsScreen: React.FC = () => {
     }
   }
 
+  const TABS = [
+    { id: 'appearance' as SettingsTab, label: 'Appearance', icon: Sun },
+    { id: 'behavior' as SettingsTab, label: 'Application Behavior', icon: Sliders },
+    { id: 'integrations' as SettingsTab, label: 'Integrations & Mode', icon: ShieldCheck },
+    { id: 'about' as SettingsTab, label: 'About Platform', icon: Info },
+  ]
+
   return (
     <div className="screen-page space-y-8">
-      {/* Editorial Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-            Platform Configuration
-          </span>
-          <h1 className="page-title">
-            System Settings & Submission Modes
-          </h1>
+          <p className="page-kicker">Platform Configuration</p>
+          <h1 className="page-title">Settings & Safeguards</h1>
           <p className="page-intro">
-            Configure matching suitability floors, rate-limiting quotas, and toggle between Safe Sandbox testing and Supervised Live submission.
+            Suitability floor parameters, rate limits, theme preferences, and environment safeguards.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={loadSettings} loading={loading}>
-            <RefreshCw className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-3 shrink-0">
+          <Button variant="secondary" size="md" onClick={loadSettings} loading={loading}>
+            <RefreshCw className="w-4 h-4" />
             <span>Reload</span>
           </Button>
         </div>
       </div>
 
       {feedback && (
-        <div className="p-4 rounded-apple-md bg-success-subtle border border-success-green/20 text-success-green text-xs flex items-center gap-2 shadow-sm">
-          <CheckCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="font-medium">{feedback}</span>
+        <div className="p-4 rounded-card border border-ok/20 bg-ok-subtle text-ok text-xs flex items-center justify-between shadow-1">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{feedback}</span>
+          </div>
+          <button onClick={() => setFeedback(null)} className="p-1 hover:opacity-70">
+            ×
+          </button>
         </div>
       )}
 
       {error && (
-        <div className="p-4 rounded-apple-md bg-danger-subtle border border-danger-red/20 text-danger-red text-xs flex items-center gap-2 shadow-sm">
+        <div className="p-4 rounded-card border border-err/20 bg-err-subtle text-err text-xs flex items-center justify-between">
           <span>{error}</span>
+          <button onClick={() => setError(null)} className="p-1 hover:opacity-70">
+            ×
+          </button>
         </div>
       )}
 
-      <Card className="p-6 space-y-5">
-        <div><p className="page-kicker">Appearance</p><h2 className="mt-1 text-[22px] font-semibold tracking-[-.02em] text-text-primary">Made for your environment.</h2><p className="mt-1 text-[14px] text-text-secondary">Your choice is saved locally and System follows your device preference.</p></div>
-        <div className="inline-flex rounded-full bg-ash p-1" role="radiogroup" aria-label="Appearance preference">
-          {([{ id: 'light', label: 'Light', icon: <Sun /> }, { id: 'dark', label: 'Dark', icon: <Moon /> }, { id: 'system', label: 'System', icon: <Monitor /> }] as Array<{ id: ThemeMode; label: string; icon: React.ReactNode }>).map((option) => <button key={option.id} role="radio" aria-checked={mode === option.id} onClick={() => setMode(option.id)} className={`relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium ${mode === option.id ? 'text-text-primary' : 'text-text-secondary'}`}>
-            {mode === option.id && <motion.span layoutId="theme-choice" className="absolute inset-0 rounded-full bg-surface" transition={{ type: 'spring', stiffness: 430, damping: 32 }} />}
-            {React.cloneElement(option.icon as React.ReactElement<{ className?: string }>, { className: 'relative h-3.5 w-3.5' })}<span className="relative">{option.label}</span>
-          </button>)}
-        </div>
-      </Card>
-
-      {/* Submission Mode Selector Card */}
-      <Card className="p-6 bg-surface shadow-apple-card space-y-6">
-        <div className="flex items-center justify-between border-b border-border-subtle pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-ash text-text-primary flex items-center justify-center">{allowRealSubmission ? <Globe className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}</div>
-            <div>
-              <h3 className="text-base font-semibold text-text-primary">
-                {allowRealSubmission ? 'Supervised Live Mode (Real Portals Enabled)' : 'Safety Sandbox Mode (Mock Testing Only)'}
-              </h3>
-              <p className="text-xs text-text-secondary">
-                {allowRealSubmission
-                  ? 'Browser automation submits to external company portals under strict single-use approval verification.'
-                  : 'All automated submissions are strictly constrained to the local hostile testing harness (127.0.0.1:8765).'}
-              </p>
-            </div>
-          </div>
-
-          <label className="relative inline-flex items-center cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={allowRealSubmission}
-              onChange={(e) => setAllowRealSubmission(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-12 h-7 bg-black/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-success-green shadow-sm"></div>
-          </label>
+      {/* Main Settings Grid: Left Rail + Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Sticky Nav Rail */}
+        <div className="lg:col-span-4 sticky top-24 space-y-1">
+          {TABS.map((tab) => {
+            const active = activeTab === tab.id
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-card text-left transition-colors ${
+                  active ? 'text-text font-semibold' : 'text-text-2 hover:text-text hover:bg-selected'
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="settings-tab-pill"
+                    className="absolute inset-0 rounded-card bg-selected border border-border"
+                    transition={spring.layout}
+                  />
+                )}
+                <Icon className="relative z-10 w-4 h-4 text-text-3" strokeWidth={1.5} />
+                <span className="relative z-10 text-sm">{tab.label}</span>
+              </button>
+            )
+          })}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          <div className="p-4 rounded-apple-md bg-canvas border border-border-subtle space-y-1">
-            <span className="font-semibold text-text-primary uppercase text-[11px] block">
-              Safety Sandbox (Mock Portal)
-            </span>
-            <p className="text-text-secondary leading-relaxed">
-              Automated browser interactions are strictly restricted to <code className="font-mono bg-white px-1 py-0.5 rounded border border-border-subtle text-text-primary">127.0.0.1:8765</code>.
-              Safely test resume tailoring, validation gates, and rate limits without sending applications to real employers.
-            </p>
-          </div>
+        {/* Right Settings Content */}
+        <div className="lg:col-span-8">
+          <form onSubmit={handleSave} className="space-y-6">
+            {activeTab === 'appearance' && (
+              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+                <div>
+                  <h3 className="text-sm font-semibold text-text">Visual Theme</h3>
+                  <p className="text-xs text-text-3 mt-1">
+                    Select your preferred interface theme. In system mode, JOV.si adapts automatically.
+                  </p>
+                </div>
 
-          <div className="p-4 rounded-apple-md bg-canvas border border-border-subtle space-y-1">
-            <span className="font-semibold text-text-primary uppercase text-[11px] block">
-              Supervised Live Submission Mode
-            </span>
-            <p className="text-text-secondary leading-relaxed">
-              Permits submission to external career portals (Greenhouse, Lever, etc.). Submissions still require passing all 15 validation checks and explicit user approval bound to the SHA-256 package hash.
-            </p>
-          </div>
+                {/* 3-Segment Theme Selector with layoutId sliding indicator */}
+                <div className="inline-flex items-center p-1.5 rounded-full bg-bg-elev-2 border border-border">
+                  {[
+                    { id: 'light' as ThemeMode, label: 'Light', icon: Sun },
+                    { id: 'dark' as ThemeMode, label: 'Dark', icon: Moon },
+                    { id: 'system' as ThemeMode, label: 'System', icon: Monitor },
+                  ].map((opt) => {
+                    const active = mode === opt.id
+                    const Icon = opt.icon
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={(e) => setMode(opt.id, e)}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
+                          active ? 'text-text font-semibold' : 'text-text-3 hover:text-text'
+                        }`}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="theme-selector-pill"
+                            className="absolute inset-0 rounded-full bg-bg-elev-1 border border-border shadow-1"
+                            transition={spring.layout}
+                          />
+                        )}
+                        <Icon className="relative z-10 w-3.5 h-3.5" strokeWidth={1.5} />
+                        <span className="relative z-10">{opt.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'behavior' && (
+              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+                <div>
+                  <h3 className="text-sm font-semibold text-text">Matching & Quotas</h3>
+                  <p className="text-xs text-text-3 mt-1">
+                    Control suitability gating floors and anti-spam application volume limits.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-semibold text-text">Suitability Floor Score</label>
+                      <span className="font-mono text-text font-semibold">{suitabilityFloor}/100</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={suitabilityFloor}
+                      onChange={(e) => setSuitabilityFloor(Number(e.target.value))}
+                      className="w-full accent-text cursor-pointer"
+                    />
+                    <p className="text-[11px] text-text-3">
+                      Roles scoring below this threshold are automatically flagged as Below Threshold.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-border">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-text">Daily Global Cap</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={dailyCapGlobal}
+                        onChange={(e) => setDailyCapGlobal(Number(e.target.value))}
+                        className="app-input"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-text">Daily Per Portal</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={dailyCapPortal}
+                        onChange={(e) => setDailyCapPortal(Number(e.target.value))}
+                        className="app-input"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-text">Daily Per Company</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={dailyCapCompany}
+                        onChange={(e) => setDailyCapCompany(Number(e.target.value))}
+                        className="app-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button type="submit" variant="primary" size="md" loading={saving}>
+                    <Save className="w-4 h-4" />
+                    <span>Save Application Settings</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'integrations' && (
+              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+                <div>
+                  <h3 className="text-sm font-semibold text-text">Environment Safeguards</h3>
+                  <p className="text-xs text-text-3 mt-1">
+                    Manage sandbox testing mode versus real external submission portals.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-md border border-border bg-bg-elev-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-ok" strokeWidth={1.5} />
+                      <span className="text-sm font-semibold text-text">
+                        {allowRealSubmission ? 'Supervised Live Mode (Real Portals Enabled)' : 'Safety Sandbox Mode (Mock Testing Only)'}
+                      </span>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-bg-input text-text-3">
+                      L0_DRY_RUN
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-2 leading-relaxed">
+                    By default, JOV.si restricts all submissions to the internal mock portal endpoint (127.0.0.1:8765) to prevent accidental external applications.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'about' && (
+              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
+                <div>
+                  <h3 className="text-sm font-semibold text-text">About JOV.si</h3>
+                  <p className="text-xs text-text-3 mt-1">
+                    Autonomous job application platform engineered around strict candidate provenance.
+                  </p>
+                </div>
+
+                <div className="text-xs text-text-2 space-y-2 pt-2 border-t border-border font-mono">
+                  <p>Version: 0.2.0-recovery</p>
+                  <p>Gate Specification: 15-Point Deterministic Standard</p>
+                  <p>Proof Level: E2 Independent Oracle Verification</p>
+                  <p>Design Language: Scattered → Clarity (Motion.dev native)</p>
+                </div>
+              </div>
+            )}
+          </form>
         </div>
-      </Card>
-
-      {/* Thresholds & Limit Configuration */}
-      <form onSubmit={handleSave}>
-        <Card className="p-6 bg-surface shadow-apple-card space-y-6">
-          <div className="flex items-center gap-2 border-b border-border-subtle pb-3">
-            <Sliders className="w-4 h-4 text-text-tertiary" />
-            <h3 className="text-base font-semibold text-text-primary">
-              Operational Thresholds & Rate Quotas
-            </h3>
-          </div>
-
-          {/* Suitability Score Floor */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <label className="text-text-primary font-medium">
-                Suitability Match Score Floor: <span className="font-mono text-text-primary font-semibold">{suitabilityFloor}/100</span>
-              </label>
-              <span className="text-text-tertiary text-[11px]">
-                Jobs scored below this floor transition to BELOW_THRESHOLD
-              </span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={suitabilityFloor}
-              onChange={(e) => setSuitabilityFloor(Number(e.target.value))}
-              className="w-full accent-text-primary cursor-pointer"
-            />
-          </div>
-
-          {/* Rate Limit Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div>
-              <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                Global Daily Cap
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={dailyCapGlobal}
-                onChange={(e) => setDailyCapGlobal(Number(e.target.value))}
-                className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue font-mono"
-              />
-              <span className="text-[11px] text-text-tertiary mt-1 block">Max total submits/day</span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                Per-Portal Daily Cap
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="50"
-                value={dailyCapPortal}
-                onChange={(e) => setDailyCapPortal(Number(e.target.value))}
-                className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue font-mono"
-              />
-              <span className="text-[11px] text-text-tertiary mt-1 block">Max per ATS domain</span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                Per-Company Daily Cap
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={dailyCapCompany}
-                onChange={(e) => setDailyCapCompany(Number(e.target.value))}
-                className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue font-mono"
-              />
-              <span className="text-[11px] text-text-tertiary mt-1 block">Max per employer</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-              Candidate System Timezone
-            </label>
-            <input
-              type="text"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              className="w-full max-w-sm p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue font-mono"
-            />
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-border-subtle">
-            <Button variant="primary" size="md" type="submit" loading={saving}>
-              <Save className="w-4 h-4" />
-              <span>Save & Persist Configuration</span>
-            </Button>
-          </div>
-        </Card>
-      </form>
+      </div>
     </div>
   )
 }
