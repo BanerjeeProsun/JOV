@@ -5,6 +5,7 @@ import { SplitText } from '../components/motion/SplitText'
 import { Magnetic } from '../components/motion/Magnetic'
 import { ChaosToClarity } from '../components/motion/ChaosToClarity'
 import { SpotlightSurface } from '../components/motion/SpotlightSurface'
+import { CinematicBackgroundVideo } from '../components/media/CinematicBackgroundVideo'
 import { api } from '../api/client'
 import type { Candidate, MasterResumeStatus, MetricsSummary } from '../types'
 
@@ -61,7 +62,12 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
       </div>
 
       {/* Hero Section */}
-      <section className="relative grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="relative grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] rounded-card-lg overflow-hidden p-6 sm:p-10 border border-border bg-bg-elev-1">
+        {/* Cinematic Background Video Loop (Onboarding / Welcome) */}
+        {!hasResume && (
+          <CinematicBackgroundVideo className="rounded-card-lg" />
+        )}
+
         {/* Ambient pearl light pool behind hero */}
         <div
           className="absolute -top-24 -left-20 w-[540px] h-[540px] rounded-full pointer-events-none opacity-40 blur-[80px]"
