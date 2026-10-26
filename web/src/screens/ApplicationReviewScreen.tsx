@@ -19,6 +19,7 @@ import {
   Download,
   FileText,
   FileDown,
+  AlertCircle,
 } from 'lucide-react'
 import { spring } from '../design/motion'
 
@@ -46,6 +47,8 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
   const [editingCoverLetter, setEditingCoverLetter] = useState(false)
   const [coverLetterText, setCoverLetterText] = useState('')
   const [savingCoverLetter, setSavingCoverLetter] = useState(false)
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false)
+  const [coverLetterViolations, setCoverLetterViolations] = useState<string[]>([])
 
   const loadApplication = async () => {
     setLoading(true)
@@ -115,19 +118,52 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
   const handleSaveCoverLetter = async () => {
     setSavingCoverLetter(true)
+    setError(null)
+    setCoverLetterViolations([])
     try {
-      await fetch(`/api/v1/applications/${applicationId}/cover-letter`, {
+      const resp = await fetch(`/api/v1/applications/${applicationId}/cover-letter`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cover_letter: coverLetterText }),
       })
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        if (data.detail && data.detail.violations) {
+          const msgs = data.detail.violations.map((v: any) => v.message)
+          setCoverLetterViolations(msgs)
+          throw new Error(data.detail.message || 'Cover letter failed validation.')
+        }
+        throw new Error(data.detail?.message || data.detail || 'Failed to update cover letter.')
+      }
       setEditingCoverLetter(false)
-      setFeedback('Cover letter updated successfully!')
+      setFeedback('Cover letter validated and saved successfully!')
       await loadApplication()
     } catch (err: any) {
       setError(err.message)
     } finally {
       setSavingCoverLetter(false)
+    }
+  }
+
+  const handleRegenerateCoverLetter = async () => {
+    setGeneratingCoverLetter(true)
+    setError(null)
+    setCoverLetterViolations([])
+    try {
+      const resp = await fetch(`/api/v1/applications/${applicationId}/generate-cover-letter`, {
+        method: 'POST',
+      })
+      const data = await resp.json()
+      if (!resp.ok) {
+        throw new Error(data.detail || 'Failed to generate cover letter.')
+      }
+      setCoverLetterText(data.cover_letter)
+      setFeedback(`Cover letter regenerated (${data.generator})`)
+      await loadApplication()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setGeneratingCoverLetter(false)
     }
   }
 
@@ -472,43 +508,106 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
         {/* Cover Letter Content */}
         {activeTab === 'COVER_LETTER' && (
-          <div className="max-w-[70ch] mx-auto p-8 rounded-2xl border border-border/60 bg-bg-elev-1/30 text-text font-sans leading-relaxed space-y-4 shadow-1">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-text">Cover Letter Draft</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditingCoverLetter(!editingCoverLetter)}
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>{editingCoverLetter ? 'Cancel Edit' : 'Edit'}</span>
-              </Button>
+          <div className="max-w-[70ch] mx-auto space-y-4">
+            {/* Download & Provenance Action Bar */}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-bg-elev-1/40 border border-border/60 text-xs">
+              <div className="flex items-center gap-2 text-text-3 font-mono text-[11px]">
+                <FileText className="w-3.5 h-3.5 text-text-2" />
+                <span>Grounded in candidate facts</span>
+                <span>·</span>
+                <span>Zero synthetic enthusiasm</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={generatingCoverLetter}
+                  onClick={handleRegenerateCoverLetter}
+                  title="Regenerate tailored cover letter"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Regenerate</span>
+                </Button>
+                <a
+                  href={`/api/v1/applications/${applicationId}/cover-letter/pdf`}
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-text-2" />
+                  <span>PDF</span>
+                </a>
+                <a
+                  href={`/api/v1/applications/${applicationId}/cover-letter/docx`}
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                >
+                  <FileDown className="w-3.5 h-3.5 text-text-2" />
+                  <span>DOCX</span>
+                </a>
+                <a
+                  href={`/api/v1/applications/${applicationId}/cover-letter/txt`}
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5 text-text-2" />
+                  <span>TXT</span>
+                </a>
+              </div>
             </div>
 
-            {editingCoverLetter ? (
-              <div className="space-y-3">
-                <textarea
-                  rows={10}
-                  value={coverLetterText}
-                  onChange={(e) => setCoverLetterText(e.target.value)}
-                  className="app-input resize-y text-xs font-mono"
-                />
-                <div className="flex justify-end">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    loading={savingCoverLetter}
-                    onClick={handleSaveCoverLetter}
-                  >
-                    Save Changes
-                  </Button>
+            {/* Validation Violations Callout */}
+            {coverLetterViolations.length > 0 && (
+              <div className="p-4 rounded-xl border border-border/80 bg-bg-elev-1/80 text-xs space-y-1.5">
+                <div className="flex items-center gap-2 font-semibold text-text">
+                  <AlertCircle className="w-4 h-4 text-text-3" />
+                  <span>Factual Consistency Validation Failed</span>
                 </div>
+                <ul className="list-disc list-inside space-y-1 text-text-2 pl-2">
+                  {coverLetterViolations.map((v, i) => (
+                    <li key={i}>{v}</li>
+                  ))}
+                </ul>
               </div>
-            ) : (
-              <p className="text-xs text-text-2 whitespace-pre-line leading-relaxed">
-                {coverLetterText || 'No custom cover letter required for this application.'}
-              </p>
             )}
+
+            <div className="p-8 rounded-2xl border border-border/60 bg-bg-elev-1/30 text-text font-sans leading-relaxed space-y-4 shadow-1">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <h3 className="text-sm font-semibold text-text">Tailored Cover Letter</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingCoverLetter(!editingCoverLetter)}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{editingCoverLetter ? 'Cancel Edit' : 'Edit Letter'}</span>
+                </Button>
+              </div>
+
+              {editingCoverLetter ? (
+                <div className="space-y-3">
+                  <textarea
+                    rows={12}
+                    value={coverLetterText}
+                    onChange={(e) => setCoverLetterText(e.target.value)}
+                    className="app-input resize-y text-xs font-mono leading-relaxed"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      loading={savingCoverLetter}
+                      onClick={handleSaveCoverLetter}
+                    >
+                      Save & Validate
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-text-2 whitespace-pre-line leading-relaxed">
+                  {coverLetterText || 'No custom cover letter required for this application.'}
+                </p>
+              )}
+            </div>
           </div>
         )}
 

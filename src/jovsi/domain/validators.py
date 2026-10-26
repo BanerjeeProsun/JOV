@@ -50,6 +50,24 @@ SENIORITY_WORDS = {
     "spearheaded",
 }
 
+UNGROUNDED_INTEREST_PATTERNS = [
+    r"\balways\s+(?:admired|loved|dreamed|followed)\b",
+    r"\blifelong\s+(?:passion|dream|interest)\b",
+    r"\bmy\s+dream\s+(?:job|company|team|role)\b",
+    r"\bfavorite\s+company\b",
+    r"\bsince\s+(?:childhood|infancy|elementary|middle\s+school)\b",
+    r"\bdeep\s+personal\s+admiration\b",
+]
+
+COMMON_UNVERIFIED_TECH_SKILLS = [
+    "rust", "solidity", "c++", "golang", "scala", "haskell", "clojure",
+    "elixir", "ruby", "rails", "swift", "kotlin", "java", "c#", "dotnet",
+    "kubernetes", "k8s", "terraform", "ansible", "graphql", "grpc", "kafka",
+    "rabbitmq", "spark", "hadoop", "snowflake", "databricks", "airflow",
+    "pytorch", "tensorflow", "keras", "opencv", "blockchain", "web3",
+]
+
+
 
 def normalize_tokens(text: str) -> List[str]:
     # Handles C++, C#, .NET, etc. safely without word-boundary stripping
@@ -236,3 +254,83 @@ class FactualConsistencyValidator:
 
         is_valid = len(violations) == 0
         return ValidationReport(is_valid=is_valid, violations=violations)
+
+    @classmethod
+    def validate_cover_letter(
+        cls,
+        cover_letter: str,
+        candidate_facts: List[Fact],
+        company_name: Optional[str] = None,
+        role_title: Optional[str] = None,
+    ) -> ValidationReport:
+        """Validates cover letter text for factual consistency, ungrounded claims, and fabricated interest."""
+        violations: List[ValidationViolation] = []
+
+        if not cover_letter or len(cover_letter.strip()) < 50:
+            violations.append(
+                ValidationViolation(
+                    code="EMPTY_OR_TRIVIAL",
+                    message="Cover letter is empty or too short (< 50 characters).",
+                )
+            )
+            return ValidationReport(is_valid=False, violations=violations)
+
+        usable_facts = [f for f in candidate_facts if f.is_usable]
+        combined_facts_text = " ".join([str(f.value) for f in usable_facts]).lower()
+
+        # 1. Fabricated interest / sycophancy check
+        letter_lower = cover_letter.lower()
+        for pat in UNGROUNDED_INTEREST_PATTERNS:
+            match = re.search(pat, letter_lower)
+            if match:
+                violations.append(
+                    ValidationViolation(
+                        code="UNGROUNDED_INTEREST_CLAIM",
+                        entity=match.group(0),
+                        message=f"Fabricated interest phrase '{match.group(0)}' detected in cover letter",
+                    )
+                )
+
+        # 2. Seniority & superlatives check
+        letter_tokens = normalize_tokens(cover_letter)
+        for tok in letter_tokens:
+            if tok in SENIORITY_WORDS:
+                if tok not in combined_facts_text:
+                    violations.append(
+                        ValidationViolation(
+                            code="UNVERIFIED_SENIORITY_CLAIM",
+                            entity=tok,
+                            message=f"Seniority or superlative claim '{tok}' in cover letter is not in verified facts",
+                        )
+                    )
+
+        # 3. Numbers / metrics check
+        letter_numbers = extract_numbers(cover_letter)
+        fact_numbers = extract_numbers(combined_facts_text)
+        benign_numbers = {"2024", "2025", "2026", "2027", "1", "2"}
+        for num in letter_numbers:
+            if num not in fact_numbers and num not in benign_numbers:
+                violations.append(
+                    ValidationViolation(
+                        code="UNVERIFIED_NUMBER",
+                        entity=num,
+                        message=f"Metric or number '{num}' in cover letter is not present in candidate facts",
+                    )
+                )
+
+        # 4. Unverified technical skills check
+        candidate_tokens = set(normalize_tokens(combined_facts_text))
+        for skill in COMMON_UNVERIFIED_TECH_SKILLS:
+            pattern = rf"\b{re.escape(skill)}\b"
+            if re.search(pattern, letter_lower):
+                if skill not in candidate_tokens:
+                    violations.append(
+                        ValidationViolation(
+                            code="UNVERIFIED_SKILL",
+                            entity=skill,
+                            message=f"Technical skill '{skill}' in cover letter is not backed by candidate facts",
+                        )
+                    )
+
+        return ValidationReport(is_valid=len(violations) == 0, violations=violations)
+

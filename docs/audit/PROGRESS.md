@@ -18,9 +18,9 @@
 | **M7** | Search & Filters: Facets, URL State & UI Wiring | **COMPLETED** | 150 / 150 | `e38e8d4` |
 | **M8** | Aggregator/Feed Connectors & Manual Import | **COMPLETED** | 171 / 171 | `c396c3d` |
 | **M9** | Eligibility Gates & Explainable Scoring | **COMPLETED** | 181 / 181 | `d536629` |
-| **M10** | Job-Specific Resume Generation & Grounding | **COMPLETED** | 189 / 189 | `[pending]` |
-| **M11** | Cover Letters with Provenance Grounding | **IN PROGRESS** | - | - |
-| **M12** | Application Planning & Manual Handoff | **PENDING** | - | - |
+| **M10** | Job-Specific Resume Generation & Grounding | **COMPLETED** | 189 / 189 | `af3e280` |
+| **M11** | Cover Letters with Provenance Grounding | **COMPLETED** | 197 / 197 | `[pending]` |
+| **M12** | Application Planning & Manual Handoff | **IN PROGRESS** | - | - |
 | **M13** | External Authenticated-Session Workflow | **PENDING** | - | - |
 | **M14** | Validation, Approval & Submission Pipeline | **PENDING** | - | - |
 | **M15** | Dashboard & Settings Integration (Honest Greetings) | **PENDING** | - | - |
@@ -297,10 +297,33 @@
     - Mentions candidate's authentic background, relevant projects/skills, and alignment to company mission.
     - Never fabricates enthusiasm reasons, non-existent achievements, or false history.
   - Validation & Editing API:
-    - `PUT /api/v1/applications/{app_id}/cover-letter`: Updates cover letter text, validates for hallucinations and ungrounded statements.
-    - `GET /api/v1/applications/{app_id}/cover-letter/docx` and `txt`: Exports cover letter in DOCX and plain text formats.
+    - `PUT /api/v1/applications/{app_id}/cover-letter`: Updates cover letter text, validates for hallucinations, unverified skills/numbers/seniority, and sycophantic claims. Returns HTTP 422 with structured violation list if invalid.
+    - `POST /api/v1/applications/{app_id}/generate-cover-letter`: Re-generates tailored cover letter with automatic fallback.
+    - `GET /api/v1/applications/{app_id}/cover-letter/pdf`, `docx`, and `txt`: Exports cover letter in PDF, DOCX, and plain text formats.
   - Frontend Integration:
-    - Cover Letter tab in `ApplicationReviewScreen.tsx` allowing interactive editing, diff/provenance check, and direct export.
+    - Cover Letter tab in `ApplicationReviewScreen.tsx` with:
+      - Provenance banner ("Grounded in candidate facts · Zero synthetic enthusiasm").
+      - Download actions for PDF, DOCX, and TXT.
+      - "Regenerate" and "Save & Validate" actions with inline violation callouts.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 197 passed, 0 failed in 35.22s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.09s.
+- **Definition of Done for M11**: Factual consistency validator for cover letters (catching ungrounded interest, unverified skills, unverified numbers, and seniority inflations), multi-format document renderers (PDF, DOCX, TXT), API endpoints with validation enforcement, and frontend review screen verified.
+
+---
+
+### Milestone 12: Application Planning & Manual Handoff
+- **Scope**:
+  - Exportable Handoff Package for Unsupported / Third-Party Portals:
+    - For portals requiring manual submission (e.g. Workday, Taleo, direct email, or user-preferred manual apply), generate a consolidated Application Handoff Package.
+    - Package contains: tailored resume (PDF + DOCX), tailored cover letter (PDF + DOCX + TXT), verified field answers JSON (for copy-pasting answers into portal fields), application metadata and direct URL.
+    - ZIP archive download endpoint: `GET /api/v1/applications/{app_id}/package.zip` and JSON manifest: `GET /api/v1/applications/{app_id}/package`.
+  - Manual Handoff Flow in UI:
+    - "Manual Application Kit" modal / drawer in `ApplicationReviewScreen.tsx` and `ApplicationQueueScreen.tsx`.
+    - One-click copy for each form field answer (Full Name, Email, Phone, LinkedIn, GitHub, Years of Experience, Work Auth, Salary expectation, etc.).
+    - "Download Complete Application Kit (.zip)" button.
+    - "Mark as Manually Submitted" action transitioning state to `SUBMITTED` with manual submission timestamp.
+
 
 
 

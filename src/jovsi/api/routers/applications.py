@@ -743,6 +743,65 @@ class CoverLetterUpdate(BaseModel):
     cover_letter: str
 
 
+@router.post("/applications/{app_id}/generate-cover-letter")
+def generate_cover_letter_endpoint(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Synthesizes a tailored, fact-grounded cover letter."""
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
+    candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == app_row.candidate_id))
+    facts_db = db.scalars(select(FactDB).where(FactDB.candidate_id == app_row.candidate_id)).all()
+    domain_facts = [
+        Fact(
+            id=f.id,
+            candidate_id=f.candidate_id,
+            kind=FactKind(f.kind),
+            key=f.key,
+            value=f.value,
+            provenance=FactProvenance(f.provenance),
+            status=FactStatus(f.status),
+        )
+        for f in facts_db
+    ]
+
+    reqs = JobRequirements(**job.requirements) if job and job.requirements else JobRequirements()
+
+    letter, report, generator = ResumeService.generate_tailored_cover_letter(
+        candidate_name=candidate.display_name if candidate else "Candidate",
+        company_name=job.company_norm if job else "Hiring Company",
+        role_title=job.title_norm if job else "Software Engineer",
+        facts=domain_facts,
+        requirements=reqs,
+        job_description_clean=job.description_clean if job else None,
+    )
+
+    resume_row = None
+    if app_row.current_resume_id:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.id == app_row.current_resume_id))
+    if not resume_row:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.application_id == app_id).order_by(ResumeDB.version.desc()))
+
+    if resume_row:
+        content = dict(resume_row.content)
+        content["cover_letter"] = letter
+        resume_row.content = content
+        db.commit()
+
+    return {
+        "status": "generated",
+        "cover_letter": letter,
+        "generator": generator,
+        "is_valid": report.is_valid,
+    }
+
+
 @router.put("/applications/{app_id}/cover-letter")
 def update_cover_letter(
     app_id: str,
@@ -750,19 +809,154 @@ def update_cover_letter(
     current_user: Optional[UserDB] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
+    """Edit cover letter with strict factual consistency and ungrounded interest validation."""
     app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
     if not app_row:
         raise HTTPException(status_code=404, detail="Application not found")
     _check_app_access(app_row, current_user)
 
-    resume_row = db.scalar(select(ResumeDB).where(ResumeDB.application_id == app_id).order_by(ResumeDB.created_at.desc()))
+    job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
+    facts_db = db.scalars(select(FactDB).where(FactDB.candidate_id == app_row.candidate_id)).all()
+    domain_facts = [
+        Fact(
+            id=f.id,
+            candidate_id=f.candidate_id,
+            kind=FactKind(f.kind),
+            key=f.key,
+            value=f.value,
+            provenance=FactProvenance(f.provenance),
+            status=FactStatus(f.status),
+        )
+        for f in facts_db
+    ]
+
+    report = FactualConsistencyValidator.validate_cover_letter(
+        cover_letter=data.cover_letter,
+        candidate_facts=[f for f in domain_facts if f.is_usable],
+        company_name=job.company_norm if job else None,
+        role_title=job.title_norm if job else None,
+    )
+    if not report.is_valid:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Cover letter failed factual consistency validation",
+                "violations": [v.model_dump() for v in report.violations],
+            },
+        )
+
+    resume_row = None
+    if app_row.current_resume_id:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.id == app_row.current_resume_id))
+    if not resume_row:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.application_id == app_id).order_by(ResumeDB.version.desc()))
+
     if not resume_row:
         raise HTTPException(status_code=400, detail="No resume generated yet")
+
     content = dict(resume_row.content)
     content["cover_letter"] = data.cover_letter
     resume_row.content = content
     db.commit()
-    return {"status": "updated", "cover_letter": data.cover_letter}
+
+    return {
+        "status": "updated",
+        "cover_letter": data.cover_letter,
+        "is_valid": True,
+    }
+
+
+def _get_cover_letter_context(app_id: str, current_user: Optional[UserDB], db: Session):
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    resume_row = None
+    if app_row.current_resume_id:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.id == app_row.current_resume_id))
+    if not resume_row:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.application_id == app_id).order_by(ResumeDB.version.desc()))
+    if not resume_row or not resume_row.content.get("cover_letter"):
+        raise HTTPException(status_code=404, detail="No cover letter available for this application")
+
+    candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == app_row.candidate_id))
+    job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
+
+    structured = resume_row.content
+    candidate_name = structured.get("candidate_name") or (candidate.display_name if candidate else "Candidate")
+    email = structured.get("email") or "candidate@jov.si"
+    phone = structured.get("phone") or "+14155552671"
+    company_name = job.company_norm if job else "Hiring Company"
+    cover_letter_text = str(structured["cover_letter"])
+
+    return cover_letter_text, candidate_name, email, phone, company_name, app_row
+
+
+@router.get("/applications/{app_id}/cover-letter/txt")
+def download_cover_letter_txt(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Download the cover letter as a plain text document."""
+    text, _, _, _, _, _ = _get_cover_letter_context(app_id, current_user, db)
+    return Response(
+        content=text.encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="cover-letter-{app_id[:8]}.txt"',
+        },
+    )
+
+
+@router.get("/applications/{app_id}/cover-letter/pdf")
+def download_cover_letter_pdf(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Download the cover letter as a clean PDF artifact."""
+    text, name, email, phone, company, _ = _get_cover_letter_context(app_id, current_user, db)
+    pdf_bytes = ResumeService.render_cover_letter_pdf(
+        cover_letter_text=text,
+        candidate_name=name,
+        email=email,
+        phone=phone,
+        company_name=company,
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="cover-letter-{app_id[:8]}.pdf"',
+        },
+    )
+
+
+@router.get("/applications/{app_id}/cover-letter/docx")
+def download_cover_letter_docx(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Download the cover letter as a formatted Word (.docx) document."""
+    text, name, email, phone, company, _ = _get_cover_letter_context(app_id, current_user, db)
+    docx_bytes = ResumeService.render_cover_letter_docx(
+        cover_letter_text=text,
+        candidate_name=name,
+        email=email,
+        phone=phone,
+        company_name=company,
+    )
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f'attachment; filename="cover-letter-{app_id[:8]}.docx"',
+        },
+    )
+
 
 
 

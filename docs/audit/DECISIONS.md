@@ -193,5 +193,35 @@
   - Frontend Integration:
     - Updated `ApplicationReviewScreen.tsx` with structured resume section rendering, fact provenance badges per bullet, and download buttons for PDF and DOCX.
 
+## Decision 014: Grounded Cover Letter Generator, Validator & Multi-Format Exporters
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §7.7 requires cover letter generation strictly grounded in verified candidate facts and target job requirements. Fabricated admiration or sycophancy ('I have always admired Company X' / 'lifelong dream'), unearned technical skills, ungrounded metrics, or exaggerated seniority must fail validation. Letters must be editable in the UI, re-validated for ungrounded claims with HTTP 422, and exportable in PDF, DOCX, and TXT formats.
+- **Decision**:
+  - Implemented `validate_cover_letter` in `src/jovsi/domain/validators.py`:
+    - Checks for minimum length / non-triviality (`EMPTY_OR_TRIVIAL`).
+    - Detects ungrounded interest patterns and sycophancy (`UNGROUNDED_INTEREST_CLAIM`).
+    - Validates technical skills against verified candidate facts (`UNVERIFIED_SKILL`).
+    - Validates numbers and percentage metrics against verified candidate facts (`UNVERIFIED_NUMBER`).
+    - Validates seniority titles and superlatives against verified facts (`UNVERIFIED_SENIORITY_CLAIM`).
+  - Implemented Cover Letter Generation & Document Exporters in `src/jovsi/services/resume.py`:
+    - `generate_tailored_cover_letter`: Uses Gemini when configured with strict anti-hallucination prompt and automatic fallback to `generate_cover_letter`.
+    - `render_cover_letter_pdf`: Generates formatted text PDF via `pypdf`.
+    - `render_cover_letter_docx`: Generates professional Word (.docx) document via `python-docx`.
+  - Added Cover Letter API Endpoints in `src/jovsi/api/routers/applications.py`:
+    - `POST /api/v1/applications/{app_id}/generate-cover-letter`: Generates tailored cover letter, validates against candidate facts, and saves.
+    - `PUT /api/v1/applications/{app_id}/cover-letter`: Updates cover letter with reverse factual validation; returns HTTP 422 with structured violation list if invalid.
+    - `GET /api/v1/applications/{app_id}/cover-letter/pdf`: Streams binary PDF document.
+    - `GET /api/v1/applications/{app_id}/cover-letter/docx`: Streams binary DOCX document.
+    - `GET /api/v1/applications/{app_id}/cover-letter/txt`: Streams plain text document.
+  - Frontend Integration:
+    - Updated `ApplicationReviewScreen.tsx` Cover Letter tab with:
+      - Provenance banner: "Grounded in candidate facts · Zero synthetic enthusiasm".
+      - Download buttons for PDF, DOCX, and TXT.
+      - "Regenerate" button for re-synthesizing tailored letters.
+      - "Save & Validate" action displaying inline violation callouts on validation failure.
+
+
+
 
 

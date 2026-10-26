@@ -355,3 +355,209 @@ Thank you for your time and consideration. I welcome the opportunity to discuss 
 Sincerely,
 {candidate_name}
 {email}"""
+
+    @classmethod
+    def generate_tailored_cover_letter(
+        cls,
+        candidate_name: str,
+        company_name: str,
+        role_title: str,
+        facts: List[Fact],
+        requirements: JobRequirements,
+        job_description_clean: Optional[str] = None,
+    ) -> tuple[str, ValidationReport, str]:
+        """Generate tailored cover letter via LLM when configured, with fallback to deterministic."""
+        from jovsi.config import settings
+        from jovsi.services.llm import get_llm_provider
+        import concurrent.futures
+        import asyncio
+
+        usable_facts = [f for f in facts if f.is_usable]
+
+        if settings.GEMINI_API_KEY:
+            try:
+                provider = get_llm_provider()
+                facts_context = [{"kind": f.kind.value, "key": f.key, "value": f.value} for f in usable_facts]
+                system_prompt = (
+                    "You are a professional career advisor writing a tailored cover letter. "
+                    "CRITICAL CONSTRAINTS:\n"
+                    "1. Strictly ground every claim in the provided verified candidate facts.\n"
+                    "2. NEVER invent past experience, unearned skills, false achievements, or metrics.\n"
+                    "3. Do NOT fabricate reasons for interest (e.g. 'I have always admired Company X' or 'It is my lifelong dream').\n"
+                    "4. Keep the tone professional, concise, authentic, and direct.\n"
+                )
+                prompt = (
+                    f"Candidate: {candidate_name}\n"
+                    f"Target Company: {company_name}\n"
+                    f"Role: {role_title}\n"
+                    f"Job Requirements: {requirements.model_dump_json()}\n\n"
+                    f"Verified Facts:\n{json.dumps(facts_context, indent=2)}\n\n"
+                    "Write the tailored cover letter."
+                )
+                coro = provider.generate_text(prompt=prompt, system_prompt=system_prompt)
+                try:
+                    running_loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    running_loop = None
+
+                if running_loop and running_loop.is_running():
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        res = pool.submit(asyncio.run, coro).result()
+                else:
+                    res = asyncio.run(coro)
+
+                text = res.content
+                report = FactualConsistencyValidator.validate_cover_letter(
+                    cover_letter=text,
+                    candidate_facts=usable_facts,
+                    company_name=company_name,
+                    role_title=role_title,
+                )
+                if report.is_valid:
+                    return text, report, provider.model_name
+                else:
+                    logger.warning(f"LLM cover letter failed validation ({len(report.violations)} violations); using deterministic.")
+            except Exception as e:
+                logger.warning(f"LLM cover letter generation failed: {e}; falling back to deterministic.")
+
+        det_letter = cls.generate_cover_letter(
+            candidate_name=candidate_name,
+            company_name=company_name,
+            role_title=role_title,
+            facts=usable_facts,
+            requirements=requirements,
+        )
+        report = FactualConsistencyValidator.validate_cover_letter(
+            cover_letter=det_letter,
+            candidate_facts=usable_facts,
+            company_name=company_name,
+            role_title=role_title,
+        )
+        return det_letter, report, "deterministic_rule_based"
+
+    @classmethod
+    def render_cover_letter_docx(
+        cls,
+        cover_letter_text: str,
+        candidate_name: str,
+        email: str,
+        phone: str,
+        company_name: str,
+    ) -> bytes:
+        """Render a formatted cover letter Word (.docx) document."""
+        doc = docx.Document()
+
+        # Name Title
+        p_name = doc.add_paragraph()
+        run_name = p_name.add_run(candidate_name)
+        run_name.font.size = Pt(18)
+        run_name.font.bold = True
+        run_name.font.name = "Arial"
+
+        # Contact info
+        p_contact = doc.add_paragraph()
+        run_contact = p_contact.add_run(f"Email: {email}  |  Phone: {phone}")
+        run_contact.font.size = Pt(10)
+        run_contact.font.color.rgb = RGBColor(100, 100, 100)
+        run_contact.font.name = "Arial"
+
+        # Date & Target
+        p_meta = doc.add_paragraph()
+        p_meta.paragraph_format.space_before = Pt(12)
+        p_meta.paragraph_format.space_after = Pt(12)
+        run_meta = p_meta.add_run(f"Addressed to: Hiring Team, {company_name}")
+        run_meta.font.size = Pt(10)
+        run_meta.font.bold = True
+
+        # Body paragraphs
+        paragraphs = [p for p in cover_letter_text.strip().split("\n\n") if p.strip()]
+        for para in paragraphs:
+            p_body = doc.add_paragraph(para.strip())
+            p_body.paragraph_format.space_after = Pt(8)
+            p_body.paragraph_format.line_spacing = 1.15
+            for run in p_body.runs:
+                run.font.name = "Arial"
+                run.font.size = Pt(11)
+
+        out = BytesIO()
+        doc.save(out)
+        return out.getvalue()
+
+    @classmethod
+    def render_cover_letter_pdf(
+        cls,
+        cover_letter_text: str,
+        candidate_name: str,
+        email: str,
+        phone: str,
+        company_name: str,
+    ) -> bytes:
+        """Render cover letter text as a clean PDF artifact using pypdf."""
+        writer = PdfWriter()
+        page = writer.add_blank_page(width=612, height=792)  # Standard Letter
+
+        def clean_pdf_str(text: str) -> str:
+            text = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            return "".join([c if ord(c) < 128 else " " for c in text])
+
+        stream_data = [
+            "BT",
+            "/Helvetica 10 Tf",
+            "14 TL",
+            "50 740 Td",
+        ]
+
+        def add_line(t: str, size: int = 10, bold: bool = False, extra_gap: int = 0):
+            font = "/Helvetica-Bold" if bold else "/Helvetica"
+            stream_data.append(f"{font} {size} Tf")
+            stream_data.append(f"({clean_pdf_str(t)}) '")
+            if extra_gap > 0:
+                stream_data.append(f"0 -{extra_gap} Td")
+
+        add_line(candidate_name, size=16, bold=True, extra_gap=4)
+        add_line(f"Email: {email}   |   Phone: {phone}", size=9, bold=False, extra_gap=16)
+
+        paragraphs = [p for p in cover_letter_text.strip().split("\n\n") if p.strip()]
+        for para in paragraphs:
+            # Simple line wrapping at 80 chars
+            words = para.split()
+            current_line = []
+            for w in words:
+                if len(" ".join(current_line + [w])) > 80:
+                    add_line(" ".join(current_line), size=10, bold=False)
+                    current_line = [w]
+                else:
+                    current_line.append(w)
+            if current_line:
+                add_line(" ".join(current_line), size=10, bold=False)
+            stream_data.append("0 -8 Td")  # Paragraph break
+
+        stream_data.append("ET")
+        content_stream = "\n".join(stream_data).encode("latin1", errors="replace")
+
+        from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+        stream_obj = DecodedStreamObject()
+        stream_obj.set_data(content_stream)
+        page[NameObject("/Contents")] = stream_obj
+
+        fonts = DictionaryObject()
+        f1 = DictionaryObject()
+        f1[NameObject("/Type")] = NameObject("/Font")
+        f1[NameObject("/Subtype")] = NameObject("/Type1")
+        f1[NameObject("/BaseFont")] = NameObject("/Helvetica")
+        fonts[NameObject("/Helvetica")] = f1
+
+        f2 = DictionaryObject()
+        f2[NameObject("/Type")] = NameObject("/Font")
+        f2[NameObject("/Subtype")] = NameObject("/Type1")
+        f2[NameObject("/BaseFont")] = NameObject("/Helvetica-Bold")
+        fonts[NameObject("/Helvetica-Bold")] = f2
+
+        resources = DictionaryObject()
+        resources[NameObject("/Font")] = fonts
+        page[NameObject("/Resources")] = resources
+
+        output = BytesIO()
+        writer.write(output)
+        return output.getvalue()
+
