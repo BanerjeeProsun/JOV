@@ -1,0 +1,197 @@
+/* Design Tokens for JOV.si — Art Direction: Scattered -> Clarity */
+
+:root {
+  /* Surfaces */
+  --bg: #fbfbfd;
+  --bg-elev-1: #ffffff;
+  --bg-elev-2: #f5f5f7;
+  --bg-input: rgba(0, 0, 0, 0.04);
+
+  /* Text */
+  --text: #1d1d1f;
+  --text-2: #4a4a4f;
+  --text-3: #86868b;
+
+  /* Lines */
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+
+  /* Interactive */
+  --accent: #1d1d1f;            /* Primary buttons are monochrome (ink) in light */
+  --accent-contrast: #ffffff;
+  --focus: #0071e3;
+  --selected: rgba(0, 0, 0, 0.06);
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.7);   /* Inner top edge */
+  --glass-blur: 22px;
+  --glass-saturate: 1.6;
+  --overlay: rgba(10, 10, 12, 0.32);
+
+  /* Pearl Light (Signature: cool white -> faint lavender -> faint warm peach) */
+  --pearl-1: rgba(190, 210, 255, 0.55);
+  --pearl-2: rgba(225, 210, 255, 0.40);
+  --pearl-3: rgba(255, 225, 205, 0.40);
+  --pearl-glow: radial-gradient(circle at 50% 50%, rgba(190, 210, 255, 0.18), rgba(225, 210, 255, 0.1) 40%, rgba(255, 225, 205, 0.06) 65%, transparent 75%);
+
+  /* Status (always paired with icon + label) */
+  --ok: #1a7f4b;
+  --warn: #a15c00;
+  --err: #c4261d;
+  --info: #0b62c4;
+  --ok-subtle: rgba(26, 127, 75, 0.1);
+  --warn-subtle: rgba(161, 92, 0, 0.1);
+  --err-subtle: rgba(196, 38, 29, 0.1);
+  --info-subtle: rgba(11, 98, 196, 0.1);
+
+  /* Shape */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Elevation Shadows */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px -12px rgba(0, 0, 0, 0.12);
+  --shadow-float: 0 20px 60px -20px rgba(0, 0, 0, 0.25);
+
+  /* Fonts */
+  --font-sans: 'Geist Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --font-editorial: 'Instrument Serif', Georgia, serif;
+  --font-mono: 'Geist Mono', SFMono-Regular, Consolas, monospace;
+}
+
+:root[data-theme="dark"] {
+  /* Surfaces */
+  --bg: #050506;
+  --bg-elev-1: #0c0c0e;
+  --bg-elev-2: #131316;
+  --bg-input: rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --text: #f5f5f7;
+  --text-2: #b4b4ba;
+  --text-3: #76767d;
+
+  /* Lines */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  /* Interactive */
+  --accent: #f5f5f7;
+  --accent-contrast: #0a0a0b;
+  --focus: #4da3ff;
+  --selected: rgba(255, 255, 255, 0.08);
+
+  /* Glass */
+  --glass-bg: rgba(22, 22, 26, 0.55);
+  --glass-bg-strong: rgba(22, 22, 26, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.12);
+  --overlay: rgba(0, 0, 0, 0.55);
+
+  /* Pearl Light (Signature) */
+  --pearl-1: rgba(150, 180, 255, 0.22);
+  --pearl-2: rgba(190, 160, 255, 0.16);
+  --pearl-3: rgba(255, 190, 150, 0.14);
+  --pearl-glow: radial-gradient(circle at 50% 50%, rgba(150, 180, 255, 0.12), rgba(190, 160, 255, 0.08) 40%, rgba(255, 190, 150, 0.04) 65%, transparent 75%);
+
+  /* Status */
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --err: #f87171;
+  --info: #7cb7ff;
+  --ok-subtle: rgba(74, 222, 128, 0.12);
+  --warn-subtle: rgba(251, 191, 36, 0.12);
+  --err-subtle: rgba(248, 113, 113, 0.12);
+  --info-subtle: rgba(124, 183, 255, 0.12);
+
+  /* Elevation Shadows */
+  --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 40px -16px rgba(0, 0, 0, 0.8);
+  --shadow-float: 0 30px 80px -24px rgba(0, 0, 0, 0.9);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg: var(--bg-elev-1);
+    --glass-bg-strong: var(--bg-elev-1);
+  }
+}
+
+/* Glass Utility Class — Strict Section 9 Usage */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-float);
+}
+
+.glass-strong {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-float);
+}
+
+/* Base Body & Reset */
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  letter-spacing: -0.012em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* Themed Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+}
+
+/* Grain Overlay (SVG noise data URI, 3.5% opacity, pointer-events: none) */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Pearl Sheen Keyframes for subtle ambient lights */
+@keyframes pearl-shimmer {
+  0% { transform: translateX(-100%); opacity: 0; }
+  50% { opacity: 0.6; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
