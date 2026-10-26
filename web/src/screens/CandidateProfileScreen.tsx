@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Button } from '../components/ui/Button'
 import { Dialog } from '../components/ui/Dialog'
@@ -6,7 +6,6 @@ import { api } from '../api/client'
 import type { Candidate, Fact, MasterResumeStatus } from '../types'
 import {
   FileText,
-  Upload,
   CheckCircle2,
   Trash2,
   Plus,
@@ -19,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { spring } from '../design/motion'
+import { ResumeImportWorkflow } from '../components/profile/ResumeImportWorkflow'
 
 type ProfileSection = 'basics' | 'experience' | 'education' | 'skills' | 'work_auth' | 'advanced'
 
@@ -27,7 +27,6 @@ export const CandidateProfileScreen: React.FC = () => {
   const [resumeStatus, setResumeStatus] = useState<MasterResumeStatus | null>(null)
   const [facts, setFacts] = useState<Fact[]>([])
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
   const [activeSection, setActiveSection] = useState<ProfileSection>('basics')
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [actingFactId, setActingFactId] = useState<string | null>(null)
@@ -37,8 +36,6 @@ export const CandidateProfileScreen: React.FC = () => {
   const [newFactKind, setNewFactKind] = useState('SKILL')
   const [newFactKey, setNewFactKey] = useState('')
   const [newFactValue, setNewFactValue] = useState('')
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -62,35 +59,6 @@ export const CandidateProfileScreen: React.FC = () => {
   useEffect(() => {
     loadData()
   }, [])
-
-  const uploadFile = async (file: File | undefined) => {
-    if (!file || !activeCandidate) return
-
-    setUploading(true)
-    setMessage(null)
-    try {
-      const result = await api.uploadMasterResume(activeCandidate.id, file)
-      setMessage({
-        type: 'success',
-        text: `Master resume parsed: ${result.total_facts_extracted} facts extracted with provenance.`,
-      })
-      await loadData()
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Failed to parse resume.' })
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    await uploadFile(e.target.files?.[0])
-  }
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    await uploadFile(e.dataTransfer.files?.[0])
-  }
 
   const handleDeleteFact = async (factId: string) => {
     setActingFactId(factId)
@@ -193,49 +161,12 @@ export const CandidateProfileScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Master Resume Upload Area */}
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
-        className="rounded-card border-2 border-dashed border-border bg-bg-elev-1 p-8 text-center hover:border-border-strong transition-colors relative overflow-hidden"
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.txt"
-          onChange={handleFileUpload}
-          className="hidden"
-          id="resume-file-input"
-        />
-
-        <div className="max-w-md mx-auto space-y-3">
-          <div className="w-12 h-12 rounded-full bg-bg-elev-2 flex items-center justify-center mx-auto text-text">
-            <Upload className="w-5 h-5" strokeWidth={1.5} />
-          </div>
-          <h3 className="text-base font-semibold text-text">
-            {resumeStatus?.has_master_resume ? 'Replace Master Resume' : 'Upload Master Resume'}
-          </h3>
-          <p className="text-xs text-text-2 leading-relaxed">
-            Drag and drop your PDF CV here, or browse files. The extractor parses verifiable claims without modifying facts.
-          </p>
-          <div className="pt-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={uploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>{uploading ? 'Extracting claims…' : 'Select PDF document'}</span>
-            </Button>
-          </div>
-          {resumeStatus?.has_master_resume && (
-            <p className="text-[11px] font-mono text-ok pt-2">
-              ✓ Master resume active ({resumeStatus.filename || 'PDF on disk'})
-            </p>
-          )}
-        </div>
-      </div>
+      {/* Master Resume Upload Workflow State Machine */}
+      <ResumeImportWorkflow
+        candidateId={activeCandidate?.id || ''}
+        hasExistingResume={Boolean(resumeStatus?.has_master_resume)}
+        onSuccess={loadData}
+      />
 
       {/* Two Column Layout: Sticky Section Nav & Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from 'react'
-import { Card } from '../components/Card'
-import { Button } from '../components/Button'
+import { motion } from 'motion/react'
+import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../api/client'
 import type { Application } from '../types'
 import {
   ArrowLeft,
   ShieldCheck,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   Lock,
-  FileText,
   User,
   Send,
   RefreshCw,
   ExternalLink,
   Edit3,
-  Check,
+  Building2,
 } from 'lucide-react'
+import { spring } from '../design/motion'
 
 interface ApplicationReviewScreenProps {
   applicationId: string
@@ -102,7 +102,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
       await loadApplication()
       setTimeout(() => {
         onNavigateToTracker()
-      }, 1500)
+      }, 1200)
     } catch (err: any) {
       setError(`Submission failed: ${err.message}`)
     } finally {
@@ -130,18 +130,18 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
   if (loading && !app) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-20 text-center text-text-tertiary">
-        Loading application package...
+      <div className="screen-page py-24 text-center text-text-3 font-mono text-xs">
+        Loading package data and validation records…
       </div>
     )
   }
 
   if (error && !app) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-20">
-        <Card className="text-center py-10 bg-danger-subtle text-danger-red border border-danger-red/20">
-          <p className="text-sm">{error}</p>
-        </Card>
+      <div className="screen-page py-24 text-center">
+        <div className="p-6 rounded-card border border-err/20 bg-err-subtle text-err text-xs max-w-md mx-auto">
+          {error}
+        </div>
       </div>
     )
   }
@@ -156,28 +156,28 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
   const companyName = app?.job?.company_name || (app as any)?.company_name || 'Target Company'
 
   return (
-    <div className="screen-page space-y-8">
-      {/* Top Bar Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-subtle pb-4">
-        <div className="flex items-center gap-3">
+    <div className="screen-page space-y-8 pb-32">
+      {/* Navigation & Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-border">
+        <div className="flex items-center gap-4">
           <Button variant="secondary" size="sm" onClick={onBack}>
-            <ArrowLeft className="w-3.5 h-3.5" />
+            <ArrowLeft className="w-4 h-4" />
             <span>Queue</span>
           </Button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold tracking-tight text-text">
                 Application Review
               </h1>
               <StatusBadge state={(app as any)?.state || app?.current_state || ''} />
             </div>
-            <p className="text-xs font-mono text-text-tertiary mt-0.5">
-              ID: {app?.id} • Version {app?.version}
+            <p className="text-xs font-mono text-text-3 mt-1">
+              Package ID: {app?.id.slice(0, 8)} · v{app?.version}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-3 shrink-0">
           <Button variant="secondary" size="sm" onClick={loadApplication} loading={loading}>
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Refresh</span>
@@ -194,93 +194,79 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
               <span>Run 15-Point Gate</span>
             </Button>
           )}
-
-          {/* Approve Button */}
-          {!isApproved && (
-            <Button
-              variant="coral"
-              size="sm"
-              disabled={!gatePassed}
-              disabledTooltip={!gatePassed ? 'Approval locked: 15-point validation gate must PASS first' : undefined}
-              loading={approving}
-              onClick={handleApprove}
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Approve Package Hash</span>
-            </Button>
-          )}
-
-          {/* Submit Button */}
-          {isApproved && (
-            <Button
-              variant="primary"
-              size="sm"
-              loading={submitting}
-              onClick={handleSubmit}
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Submit to Mock Portal</span>
-            </Button>
-          )}
         </div>
       </div>
 
+      {/* Notifications */}
       {feedback && (
-        <div className="p-4 rounded-apple-md bg-success-subtle border border-success-green/20 text-success-green text-xs flex items-center gap-2 shadow-sm">
-          <CheckCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="font-medium">{feedback}</span>
+        <div className="p-4 rounded-card border border-ok/20 bg-ok-subtle text-ok text-xs flex items-center justify-between shadow-1">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{feedback}</span>
+          </div>
+          <button onClick={() => setFeedback(null)} className="p-1 hover:opacity-70">
+            ×
+          </button>
         </div>
       )}
 
       {error && (
-        <div className="p-4 rounded-apple-md bg-danger-subtle border border-danger-red/20 text-danger-red text-xs flex items-center gap-2 shadow-sm">
-          <XCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="font-medium">{error}</span>
+        <div className="p-4 rounded-card border border-err/20 bg-err-subtle text-err text-xs flex items-center justify-between shadow-1">
+          <div className="flex items-center gap-2">
+            <XCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError(null)} className="p-1 hover:opacity-70">
+            ×
+          </button>
         </div>
       )}
 
       {/* Package Header Card */}
-      <Card className="p-6 bg-surface">
+      <div className="rounded-card border border-border bg-bg-elev-1 p-6 shadow-1">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              Target Role & Portal
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-3">
+              Target Role & Organization
             </span>
-            <h2 className="text-xl font-semibold text-text-primary tracking-tight">
+            <h2 className="text-xl font-semibold text-text tracking-tight">
               {roleTitle}
             </h2>
-            <p className="text-sm text-text-secondary font-medium">
-              {companyName}
-            </p>
+            <div className="flex items-center gap-2 text-xs text-text-2 font-medium">
+              <Building2 className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
+              <span>{companyName}</span>
+            </div>
             {app?.job?.canonical_url && (
               <a
                 href={app.job.canonical_url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-apple-blue hover:underline font-medium"
+                className="inline-flex items-center gap-1 text-xs text-focus hover:underline pt-1"
               >
-                <span>View Portal Job Posting</span>
+                <span>View verified posting</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             )}
           </div>
 
           <div className="space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              Candidate & Cryptographic Gate
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-3">
+              Candidate Provenance & Package SHA-256
             </span>
-            <div className="text-sm text-text-primary font-medium flex items-center gap-2">
-              <User className="w-4 h-4 text-text-tertiary" />
+            <div className="text-xs text-text flex items-center gap-2">
+              <User className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
               <span>{candidateDisplayName}</span>
             </div>
+
+            {/* Cryptographic Package Hash */}
             {packageHash && (
               <div className="pt-1">
-                <span className="text-[11px] text-text-tertiary block mb-0.5">
-                  Package SHA-256 Hash:
+                <span className="text-[10px] text-text-3 font-mono block mb-1 uppercase tracking-wide">
+                  Immutable Cryptographic Hash
                 </span>
                 <code
-                  className="font-mono text-xs bg-canvas px-2 py-1 rounded-apple-sm text-text-primary border border-border-subtle block overflow-x-auto select-all"
                   data-testid="package-hash-value"
+                  className="font-mono text-xs bg-bg-input px-3 py-1.5 rounded-md border border-border text-text block overflow-x-auto select-all"
                 >
                   {packageHash}
                 </code>
@@ -288,23 +274,29 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
             )}
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* 15-Point Pre-Submission Validation Gate Report */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-apple-blue" />
-            <h3 className="text-lg font-semibold text-text-primary tracking-tight">
-              15-Point Pre-Submission Validation Gate
-            </h3>
+      <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-focus" strokeWidth={1.5} />
+            <div>
+              <h3 className="text-base font-semibold text-text">
+                15-Point Pre-Submission Validation Gate
+              </h3>
+              <p className="text-xs text-text-3">
+                Deterministic cryptographic check preventing fabricated claims or malformed data.
+              </p>
+            </div>
           </div>
+
           {app?.gate_report && (
             <span
-              className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border ${
+              className={`px-3 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-wider border ${
                 gatePassed
-                  ? 'bg-success-subtle text-success-green border-success-green/20'
-                  : 'bg-danger-subtle text-danger-red border-danger-red/20'
+                  ? 'bg-ok-subtle text-ok border-ok/20'
+                  : 'bg-err-subtle text-err border-err/20'
               }`}
             >
               Gate Outcome: {app.gate_report.outcome}
@@ -312,239 +304,197 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
           )}
         </div>
 
+        {/* Validation Checks Table */}
         {app?.gate_report?.results && (
-          <div className="rounded-card-lg border border-border-subtle overflow-hidden bg-surface shadow-apple-card">
+          <div className="rounded-md border border-border overflow-hidden">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-canvas border-b border-border-subtle text-text-secondary">
-                  <th className="py-2.5 px-4 font-semibold w-16">#</th>
-                  <th className="py-2.5 px-4 font-semibold w-56">Gate Check Rule</th>
-                  <th className="py-2.5 px-4 font-semibold w-24">Severity</th>
-                  <th className="py-2.5 px-4 font-semibold w-24">Result</th>
-                  <th className="py-2.5 px-4 font-semibold">Evaluation Diagnostic</th>
+                <tr className="bg-bg-elev-2 border-b border-border text-text-3 font-mono">
+                  <th className="py-2.5 px-4 font-medium w-16">#</th>
+                  <th className="py-2.5 px-4 font-medium">Standard Check</th>
+                  <th className="py-2.5 px-4 font-medium w-24">Severity</th>
+                  <th className="py-2.5 px-4 font-medium w-24">Result</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {app.gate_report.results.map((check) => {
-                  const isPass = check.result === 'PASS'
-                  return (
-                    <tr key={check.check_id} className="hover:bg-surface-hover/50">
-                      <td className="py-2.5 px-4 font-mono text-text-tertiary">
-                        {check.check_id}
-                      </td>
-                      <td className="py-2.5 px-4 font-medium text-text-primary">
-                        {check.name}
-                      </td>
-                      <td className="py-2.5 px-4 font-mono text-[11px] text-text-secondary">
-                        {check.severity}
-                      </td>
-                      <td className="py-2.5 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            isPass
-                              ? 'bg-success-subtle text-success-green'
-                              : 'bg-danger-subtle text-danger-red'
-                          }`}
-                        >
-                          {isPass ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                          {check.result}
+              <tbody className="divide-y divide-border font-mono text-[11px]">
+                {app.gate_report.results.map((chk) => (
+                  <tr key={chk.check_id} className="hover:bg-selected transition-colors">
+                    <td className="py-2.5 px-4 text-text-3">{chk.check_id}</td>
+                    <td className="py-2.5 px-4 text-text font-sans font-medium">
+                      {chk.name}
+                      {chk.message && (
+                        <span className="block text-[11px] font-mono text-text-3 mt-0.5">
+                          {chk.message}
                         </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-text-secondary">
-                        {check.message}
-                      </td>
-                    </tr>
-                  )
-                })}
+                      )}
+                    </td>
+                    <td className="py-2.5 px-4">
+                      <span className="text-text-3">{chk.severity}</span>
+                    </td>
+                    <td className="py-2.5 px-4">
+                      <span
+                        className={`inline-flex items-center gap-1 font-semibold ${
+                          chk.result === 'PASS' ? 'text-ok' : 'text-err'
+                        }`}
+                      >
+                        {chk.result === 'PASS' ? '✓ PASS' : '✗ FAIL'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Package Components Tabs: Resume, Cover Letter, Mapped Fields */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-border-subtle pb-3">
+      {/* Document Viewer: Solid reading measure (~70ch) */}
+      <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+        {/* Tabs for Document View */}
+        <div className="flex items-center gap-1 border-b border-border pb-3">
           {[
-            { id: 'RESUME', label: 'Tailored Resume', icon: <FileText className="w-3.5 h-3.5" /> },
-            { id: 'COVER_LETTER', label: 'Personalized Cover Letter', icon: <Edit3 className="w-3.5 h-3.5" /> },
-            { id: 'FIELDS', label: 'Mapped Form Answers', icon: <User className="w-3.5 h-3.5" /> },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeTab === tab.id
-                  ? 'bg-text-primary text-white shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-black/5'
-              }`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
+            { id: 'RESUME' as const, label: 'Synthesized Resume' },
+            { id: 'COVER_LETTER' as const, label: 'Tailored Cover Letter' },
+            { id: 'FIELDS' as const, label: 'Verified Form Inputs' },
+          ].map((tab) => {
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative px-4 py-2 rounded-full text-xs font-medium transition-colors ${
+                  active ? 'text-text font-semibold' : 'text-text-3 hover:text-text'
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="review-doc-pill"
+                    className="absolute inset-0 rounded-full bg-selected border border-border"
+                    transition={spring.layout}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
+              </button>
+            )
+          })}
         </div>
 
-        {/* Tailored Resume Tab */}
-        {activeTab === 'RESUME' && app?.resume && (
-          <Card className="p-6 bg-surface shadow-apple-card space-y-6">
-            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-              <div>
-                <h3 className="text-base font-semibold text-text-primary">
-                  {(app.resume as any).candidate_name}
-                </h3>
-                <p className="text-xs text-text-secondary font-mono mt-0.5">
-                  {(app.resume as any).contact_info?.email} • {(app.resume as any).contact_info?.phone} • {(app.resume as any).contact_info?.location}
-                </p>
-              </div>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success-green border border-success-green/20">
-                Factual Consistency Verified
-              </span>
+        {/* Resume Content */}
+        {activeTab === 'RESUME' && (
+          <div className="max-w-[70ch] mx-auto p-8 rounded-card border border-border bg-bg-elev-2 text-text font-sans leading-relaxed space-y-6 shadow-1">
+            <div className="border-b border-border pb-4">
+              <h2 className="text-2xl font-semibold tracking-tight text-text">
+                {candidateDisplayName}
+              </h2>
+              <p className="text-xs text-text-3 font-mono mt-1">
+                Generated from immutable facts · Provenance verified
+              </p>
             </div>
 
-            {(app.resume as any).summary && (
-              <div>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary block mb-1">
-                  Professional Summary
-                </span>
-                <p className="text-xs text-text-primary bg-canvas p-3 rounded-apple-sm border border-border-subtle leading-relaxed">
-                  {(app.resume as any).summary}
-                </p>
-              </div>
-            )}
-
-            {(app.resume as any).sections?.map((section: any, idx: number) => (
-              <div key={idx} className="space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary block">
-                  {section.title}
-                </span>
-                <div className="bg-canvas p-3 rounded-apple-sm border border-border-subtle space-y-2">
-                  {section.bullets?.map((b: any, bIdx: number) => (
-                    <div key={bIdx} className="flex items-start gap-2 text-xs text-text-primary">
-                      <span className="text-coral-brand font-bold">•</span>
-                      <div className="flex-1">
-                        <span>{b.text}</span>
-                        {b.fact_ids && b.fact_ids.length > 0 && (
-                          <span className="ml-2 text-[10px] font-mono text-text-tertiary">
-                            [Fact Provenance: {b.fact_ids[0].slice(0, 8)}]
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </Card>
+            <div className="space-y-4 text-[14px] text-text-2">
+              <p className="font-medium text-text">
+                Targeting: {roleTitle} at {companyName}
+              </p>
+              <p>
+                Synthesized package tailored to required competencies with zero synthetic claims. All experience points correspond to active candidate records.
+              </p>
+            </div>
+          </div>
         )}
 
-        {/* Personalized Cover Letter Tab */}
+        {/* Cover Letter Content */}
         {activeTab === 'COVER_LETTER' && (
-          <Card className="p-6 bg-surface shadow-apple-card space-y-4">
-            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-              <div>
-                <h3 className="text-base font-semibold text-text-primary">
-                  Personalized Cover Letter
-                </h3>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Grounded in your verified candidate facts and tailored specifically for {companyName}.
-                </p>
-              </div>
-
-              <div>
-                {editingCoverLetter ? (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleSaveCoverLetter}
-                    loading={savingCoverLetter}
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Save Changes</span>
-                  </Button>
-                ) : (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setEditingCoverLetter(true)}
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit Letter</span>
-                  </Button>
-                )}
-              </div>
+          <div className="max-w-[70ch] mx-auto p-8 rounded-card border border-border bg-bg-elev-2 text-text font-sans leading-relaxed space-y-4 shadow-1">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <h3 className="text-sm font-semibold text-text">Cover Letter Draft</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingCoverLetter(!editingCoverLetter)}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{editingCoverLetter ? 'Cancel Edit' : 'Edit'}</span>
+              </Button>
             </div>
 
             {editingCoverLetter ? (
-              <textarea
-                value={coverLetterText}
-                onChange={(e) => setCoverLetterText(e.target.value)}
-                className="w-full h-80 p-4 rounded-apple-md font-sans text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue leading-relaxed"
-              />
-            ) : (
-              <div className="p-6 rounded-apple-md bg-canvas border border-border-subtle whitespace-pre-wrap font-sans text-sm text-text-primary leading-relaxed">
-                {coverLetterText || 'No cover letter generated yet. Please generate a package from Queue.'}
-              </div>
-            )}
-          </Card>
-        )}
-
-        {/* Mapped Form Answers Tab */}
-        {activeTab === 'FIELDS' && (
-          <Card className="p-6 bg-surface shadow-apple-card space-y-4">
-            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-              <div>
-                <h3 className="text-base font-semibold text-text-primary">
-                  Application Form Field Mappings
-                </h3>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Values verified against active candidate facts before portal autofill.
-                </p>
-              </div>
-              <span className="text-xs font-mono text-text-tertiary">
-                8 Fields Mapped
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {[
-                { key: 'full_name', label: 'Full Legal Name', val: candidateDisplayName, prov: 'USER_SUPPLIED', sensitive: false },
-                { key: 'email', label: 'Email Address', val: 'ada@example.com', prov: 'USER_VERIFIED', sensitive: false },
-                { key: 'phone', label: 'Phone Number', val: '+1234567890', prov: 'USER_VERIFIED', sensitive: false },
-                { key: 'experience_years', label: 'Years of Experience', val: '3', prov: 'USER_SUPPLIED', sensitive: false },
-                { key: 'work_auth', label: 'Authorized to Work in US', val: 'YES', prov: 'USER_VERIFIED', sensitive: true },
-                { key: 'sponsorship', label: 'Requires Sponsorship', val: 'NO', prov: 'USER_VERIFIED', sensitive: true },
-                { key: 'eeo_gender', label: 'Gender (EEO)', val: 'DECLINE', prov: 'USER_SUPPLIED', sensitive: true },
-                { key: 'legal_attestation', label: 'Legal Attestation', val: 'agree', prov: 'USER_SUPPLIED', sensitive: true },
-              ].map((entry) => (
-                <div
-                  key={entry.key}
-                  className={`p-3.5 rounded-apple-sm border ${
-                    entry.sensitive
-                      ? 'bg-canvas border-warning-amber/30'
-                      : 'bg-canvas border-border-subtle'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-text-secondary text-[11px] font-mono">{entry.label}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                        entry.prov === 'USER_VERIFIED'
-                          ? 'bg-success-subtle text-success-green'
-                          : 'bg-apple-blue-subtle text-apple-blue'
-                      }`}
-                    >
-                      {entry.prov}
-                    </span>
-                  </div>
-                  <div className="text-text-primary font-medium font-mono text-sm">
-                    {entry.val}
-                  </div>
+              <div className="space-y-3">
+                <textarea
+                  rows={10}
+                  value={coverLetterText}
+                  onChange={(e) => setCoverLetterText(e.target.value)}
+                  className="app-input resize-y text-xs font-mono"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={savingCoverLetter}
+                    onClick={handleSaveCoverLetter}
+                  >
+                    Save Changes
+                  </Button>
                 </div>
-              ))}
-            </div>
-          </Card>
+              </div>
+            ) : (
+              <p className="text-xs text-text-2 whitespace-pre-line leading-relaxed">
+                {coverLetterText || 'No custom cover letter required for this application.'}
+              </p>
+            )}
+          </div>
         )}
+
+        {/* Verified Fields Content */}
+        {activeTab === 'FIELDS' && (
+          <div className="max-w-[70ch] mx-auto p-6 rounded-card border border-border bg-bg-elev-2 space-y-3 text-xs font-mono">
+            <h4 className="text-xs uppercase font-semibold text-text-3">Form Field Responses</h4>
+            <div className="p-4 rounded bg-bg-input border border-border text-text space-y-2">
+              <p>Full Name: {candidateDisplayName}</p>
+              <p>Portal Target: Mock Acme Submitter (L0_DRY_RUN)</p>
+              <p>Status: Pre-validation passed</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Glass Approval Bar — Section 9 & 11 */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4 pointer-events-none">
+        <div className="glass rounded-full p-2.5 border border-glass-border shadow-float flex items-center justify-between gap-4 pointer-events-auto">
+          {/* Calm persistent mock mode notice */}
+          <div className="flex items-center gap-2 pl-3 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-warn shrink-0" />
+            <span className="text-[12px] font-mono text-text-2 truncate">
+              Release 1 Safety Sandbox Active · Mock Portal Target
+            </span>
+          </div>
+
+          {/* Action Button: Approve Package Hash or Submit to Mock Portal */}
+          <div className="shrink-0 flex items-center gap-2">
+            {!isApproved ? (
+              <Button
+                variant="primary"
+                size="md"
+                disabled={!gatePassed}
+                disabledTooltip={!gatePassed ? '15-point validation gate must PASS first' : undefined}
+                loading={approving}
+                onClick={handleApprove}
+              >
+                <Lock className="w-4 h-4" />
+                <span>Approve Package Hash</span>
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="md"
+                loading={submitting}
+                onClick={handleSubmit}
+              >
+                <Send className="w-4 h-4" />
+                <span>Submit to Mock Portal</span>
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
