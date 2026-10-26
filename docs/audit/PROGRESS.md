@@ -9,9 +9,9 @@
 | Milestone | Title | Status | Tests Passed | Commit |
 |---|---|---|---|---|
 | **M0** | Recon, Inventory, Recovery Plan | **COMPLETED** | 115 / 115 | `1b98d5c` |
-| **M1** | Strict Authentication, Identity & Isolation | **COMPLETED** | 124 / 124 | Pending |
-| **M2** | Configuration, Secrets Hygiene, LLM Provider | **IN PROGRESS** | - | - |
-| **M3** | Zombie-Code Removal & Mock Isolation | **PENDING** | - | - |
+| **M1** | Strict Authentication, Identity & Isolation | **COMPLETED** | 124 / 124 | `753f0cf` |
+| **M2** | Configuration, Secrets Hygiene, LLM Provider | **COMPLETED** | 133 / 133 | Pending |
+| **M3** | Zombie-Code Removal & Mock Isolation | **IN PROGRESS** | - | - |
 | **M4** | Master-Resume Ingestion & Profile Verification | **PENDING** | - | - |
 | **M5** | Source Registry & Real ATS Connectors | **PENDING** | - | - |
 | **M6** | Normalized Schema, Geo Dataset & Parser | **PENDING** | - | - |
@@ -88,3 +88,25 @@
   - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.11s.
   - `cd web; npm run lint` -> 28 warnings, 0 errors.
 - **Definition of Done for M1**: Complete end-to-end auth, two-account isolation tests pass, display-name greeting contract fulfilled.
+
+---
+
+### Milestone 2: Configuration, Secrets Hygiene & LLM Provider Abstraction
+- **Scope**: Enforce strict secrets hygiene (`.gitignore`, `.env.example`, automated git scanner), create secret-safe `LLMProvider` abstraction with Google Gemini (`gemini-2.5-flash`) integration and deterministic heuristic fallback, implement `/api/v1/health/llm`.
+- **Implemented Modules**:
+  - `.gitignore`: Added `.env`, `.env.*`, `!.env.example`.
+  - `.env.example`: Full, safe documentation of all runtime variables.
+  - `src/jovsi/config.py`: Added `LLM_MODEL`, `GEMINI_API_KEY`, and `effective_llm_api_key`.
+  - `src/jovsi/services/llm.py`:
+    - `LLMProvider` interface defining `generate_text`, `generate_structured`, `health_check`.
+    - `GeminiLLMProvider`: Targets Google Gemini REST API (`https://generativelanguage.googleapis.com/v1beta`), passes API key strictly in `x-goog-api-key` header, redacts secrets from `__repr__` and logs, enforces 15s timeout with 3 exponential backoff retries on transient errors (429, 500, 503).
+    - `FallbackLLMProvider`: Deterministic heuristic generator for text completions and Pydantic schema-conforming structured output (tagged `source: "fallback"`).
+    - `HybridLLMService`: Transparent fallback router executing Gemini when enabled and configured, and seamlessly falling back on API failures.
+  - `src/jovsi/api/main.py`: Exposed `GET /api/v1/health/llm` reporting provider health without credential leakage.
+- **Tests Implemented & Verified**:
+  - `tests/unit/test_llm_provider.py` (6 tests): Key masking, unconfigured mode, fallback conformance, mocked Gemini response parsing, hybrid error resilience, health endpoint.
+  - `tests/security/test_secret_leakage.py` (3 tests): Scans all git-tracked files, git ignore rules for `.env`, and git history diffs for secrets.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 133 passed, 0 failed in 34.04s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.21s.
+- **Definition of Done for M2**: Secrets hygiene verified via tests, Gemini provider implemented with deterministic fallback, zero secret leakage in health checks or logs.

@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     LLM_ENABLED: bool = False
     LLM_API_KEY: Optional[str] = None
     LLM_PROVIDER: str = "gemini"
+    LLM_MODEL: str = "gemini-2.5-flash"
+    GEMINI_API_KEY: Optional[str] = None
+
+    @property
+    def effective_llm_api_key(self) -> Optional[str]:
+        return self.LLM_API_KEY or self.GEMINI_API_KEY
 
     # Host allowlist (Release 1 strictly loopback mock)
     SUBMIT_HOST_ALLOWLIST: List[str] = ["127.0.0.1:8765"]

@@ -11,6 +11,7 @@ from jovsi.config import settings
 from jovsi.domain.state_machine import IllegalTransition, GuardFailure
 from jovsi.services.application_service import VersionConflict, ApplicationNotFound
 from jovsi.services.submission import ApprovalError, SubmissionError
+from jovsi.services.llm import llm_service, LLMHealthReport
 from jovsi.api.routers import auth, candidates, jobs, applications, metrics, settings as settings_router
 from jovsi.adapters.db.session import init_db
 
@@ -156,6 +157,12 @@ def health() -> Dict[str, Any]:
         "allow_real_submission": settings.ALLOW_REAL_SUBMISSION,
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+
+@app.get("/api/v1/health/llm", response_model=LLMHealthReport)
+async def health_llm() -> LLMHealthReport:
+    """Check LLM provider configuration and operational status without exposing secrets."""
+    return await llm_service.health_check()
 
 
 @app.get("/diagnostics/health")
