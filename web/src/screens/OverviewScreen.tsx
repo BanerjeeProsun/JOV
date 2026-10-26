@@ -125,8 +125,8 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
           </div>
 
           {/* Right Hero Visual: Real Local Hero Video Asset Seamlessly Blended */}
-          <div className="relative lg:col-span-5 flex items-center justify-center">
-            <HeroVideo />
+          <div className="relative lg:col-span-5 w-full flex items-center justify-center">
+            <HeroVideo className="w-full" />
           </div>
         </div>
       </section>

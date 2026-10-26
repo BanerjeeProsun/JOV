@@ -12,15 +12,21 @@ export const HeroVideo: React.FC<HeroVideoProps> = ({ className = '' }) => {
   const [canPlay, setCanPlay] = useState(false)
   const [mounted, setMounted] = useState(false)
   const reducedMotion = useReducedMotion()
-  const isInView = useInView(containerRef, { amount: 0.15 })
+  const isInView = useInView(containerRef, { amount: 0.1 })
   const { resolvedTheme } = useTheme()
 
-  // Defer video mount slightly to ensure instant first paint
+  // Mount video quickly
   useEffect(() => {
     if (reducedMotion) return
-    const timer = setTimeout(() => setMounted(true), 100)
-    return () => clearTimeout(timer)
+    setMounted(true)
   }, [reducedMotion])
+
+  // If already buffered, mark as ready to play immediately
+  useEffect(() => {
+    if (videoRef.current && videoRef.current.readyState >= 2) {
+      setCanPlay(true)
+    }
+  }, [mounted])
 
   // Play/pause based on viewport visibility to conserve GPU
   useEffect(() => {
@@ -46,13 +52,12 @@ export const HeroVideo: React.FC<HeroVideoProps> = ({ className = '' }) => {
   }, [isInView, reducedMotion])
 
   // Multi-directional gradient mask:
-  // Smoothly dissolves the video into the surrounding page canvas on all sides,
-  // especially fading out on the left where it meets the typographic hero copy.
+  // Smoothly dissolves the video into the surrounding page canvas on all sides.
   const maskStyle: React.CSSProperties = {
     maskImage:
-      'radial-gradient(ellipse 75% 70% at 65% 50%, black 20%, rgba(0, 0, 0, 0.75) 50%, rgba(0, 0, 0, 0.2) 75%, transparent 95%)',
+      'radial-gradient(ellipse 85% 80% at 55% 50%, black 30%, rgba(0, 0, 0, 0.85) 60%, rgba(0, 0, 0, 0.25) 85%, transparent 100%)',
     WebkitMaskImage:
-      'radial-gradient(ellipse 75% 70% at 65% 50%, black 20%, rgba(0, 0, 0, 0.75) 50%, rgba(0, 0, 0, 0.2) 75%, transparent 95%)',
+      'radial-gradient(ellipse 85% 80% at 55% 50%, black 30%, rgba(0, 0, 0, 0.85) 60%, rgba(0, 0, 0, 0.25) 85%, transparent 100%)',
   }
 
   const isDark = resolvedTheme === 'dark'
@@ -60,37 +65,37 @@ export const HeroVideo: React.FC<HeroVideoProps> = ({ className = '' }) => {
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full min-h-[420px] lg:min-h-[560px] flex items-center justify-center overflow-hidden pointer-events-none select-none ${className}`}
+      className={`relative w-full aspect-[16/10] max-w-[640px] xl:max-w-[720px] flex items-center justify-center overflow-hidden pointer-events-none select-none ${className}`}
       aria-hidden="true"
     >
-      {/* Soft ambient light backdrop behind the video to enhance atmospheric depth */}
+      {/* Soft atmospheric light glow behind the video */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-40 blur-[90px]"
+        className="absolute inset-0 pointer-events-none opacity-50 blur-[80px]"
         style={{
           background: isDark
-            ? 'radial-gradient(ellipse at 60% 50%, rgba(56, 189, 248, 0.12) 0%, rgba(99, 102, 241, 0.08) 40%, transparent 70%)'
-            : 'radial-gradient(ellipse at 60% 50%, rgba(99, 102, 241, 0.08) 0%, rgba(56, 189, 248, 0.05) 40%, transparent 70%)',
+            ? 'radial-gradient(ellipse at 55% 50%, rgba(56, 189, 248, 0.16) 0%, rgba(99, 102, 241, 0.1) 45%, transparent 75%)'
+            : 'radial-gradient(ellipse at 55% 50%, rgba(99, 102, 241, 0.1) 0%, rgba(56, 189, 248, 0.06) 45%, transparent 75%)',
         }}
       />
 
       <div
-        className="relative w-full h-full flex items-center justify-center"
+        className="absolute inset-0 w-full h-full flex items-center justify-center"
         style={maskStyle}
       >
         {/* High-fidelity fallback / poster image */}
         <img
           src="/media/hero-poster.jpg"
           alt=""
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
           style={{
-            opacity: canPlay ? 0 : isDark ? 0.85 : 0.45,
+            opacity: canPlay ? 0 : 0.95,
             filter: isDark
-              ? 'brightness(0.95) contrast(1.05)'
+              ? 'brightness(1.05) contrast(1.05)'
               : 'invert(0.92) hue-rotate(180deg) brightness(1.15) contrast(1.05)',
           }}
         />
 
-        {/* Video layer */}
+        {/* Real video layer */}
         {mounted && !reducedMotion && (
           <motion.video
             ref={videoRef}
@@ -99,18 +104,19 @@ export const HeroVideo: React.FC<HeroVideoProps> = ({ className = '' }) => {
             playsInline
             autoPlay
             preload="auto"
+            onLoadedData={() => setCanPlay(true)}
             onCanPlay={() => setCanPlay(true)}
+            onPlaying={() => setCanPlay(true)}
             initial={{ opacity: 0 }}
             animate={{
-              opacity: canPlay ? (isDark ? 0.9 : 0.6) : 0,
+              opacity: canPlay ? (isDark ? 0.95 : 0.8) : 0,
             }}
-            transition={{ duration: 0.9 }}
+            transition={{ duration: 0.7 }}
             className="absolute inset-0 w-full h-full object-cover"
             style={{
               filter: isDark
-                ? 'brightness(0.95) contrast(1.08)'
+                ? 'brightness(1.05) contrast(1.08)'
                 : 'invert(0.92) hue-rotate(180deg) brightness(1.15) contrast(1.08)',
-              mixBlendMode: isDark ? 'screen' : 'multiply',
             }}
           >
             <source src="/media/hero-video.webm" type="video/webm" />
