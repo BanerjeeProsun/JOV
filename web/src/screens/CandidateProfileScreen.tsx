@@ -73,6 +73,33 @@ export const CandidateProfileScreen: React.FC = () => {
     }
   }
 
+  const handleConfirmFact = async (factId: string) => {
+    setActingFactId(factId)
+    try {
+      await api.confirmFact(factId)
+      setMessage({ type: 'success', text: 'Fact verified and activated.' })
+      await loadData()
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Confirmation failed.' })
+    } finally {
+      setActingFactId(null)
+    }
+  }
+
+  const handleConfirmAllFacts = async () => {
+    if (!activeCandidate) return
+    setLoading(true)
+    try {
+      await api.confirmAllFacts(activeCandidate.id)
+      setMessage({ type: 'success', text: 'All proposed facts verified and activated.' })
+      await loadData()
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Confirmation failed.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleAddFactSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!activeCandidate) return
@@ -161,6 +188,32 @@ export const CandidateProfileScreen: React.FC = () => {
         hasExistingResume={Boolean(resumeStatus?.has_master_resume)}
         onSuccess={loadData}
       />
+
+      {/* Proposed Facts Confirmation Banner */}
+      {resumeStatus?.proposed_facts && resumeStatus.proposed_facts > 0 ? (
+        <div className="p-4 rounded-xl border border-border/80 bg-bg-elev-1/60 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-1">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-text-2 shrink-0" />
+            <div>
+              <p className="font-semibold text-text">
+                {resumeStatus.proposed_facts} proposed {resumeStatus.proposed_facts === 1 ? 'fact awaits' : 'facts await'} your verification
+              </p>
+              <p className="text-text-3 mt-0.5">
+                Facts extracted from your master resume must be confirmed before they can be used for tailored applications.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleConfirmAllFacts}
+            loading={loading}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Confirm All ({resumeStatus.proposed_facts})</span>
+          </Button>
+        </div>
+      ) : null}
 
       {/* Two Column Layout: Sticky Section Nav & Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -253,7 +306,18 @@ export const CandidateProfileScreen: React.FC = () => {
                           {ef.value?.duration_months ? `${Math.round(ef.value.duration_months / 12)} years experience` : 'Professional Role'}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
+                        {ef.status === 'PROPOSED' && (
+                          <button
+                            onClick={() => handleConfirmFact(ef.id)}
+                            disabled={actingFactId === ef.id}
+                            title="Verify and activate this fact"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-selected border border-border text-text hover:bg-selected/80 transition-colors"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>Verify</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteFact(ef.id)}
                           disabled={actingFactId === ef.id}
@@ -298,12 +362,25 @@ export const CandidateProfileScreen: React.FC = () => {
                         Graduation: {ef.value?.graduation_year || 'Verified'} · Provenance: {ef.provenance}
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleDeleteFact(ef.id)}
-                      className="p-1.5 rounded-full text-text-3 hover:text-err transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {ef.status === 'PROPOSED' && (
+                        <button
+                          onClick={() => handleConfirmFact(ef.id)}
+                          disabled={actingFactId === ef.id}
+                          title="Verify and activate this fact"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-selected border border-border text-text hover:bg-selected/80 transition-colors"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Verify</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteFact(ef.id)}
+                        className="p-1.5 rounded-full text-text-3 hover:text-err transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -320,9 +397,23 @@ export const CandidateProfileScreen: React.FC = () => {
                 {skillFacts.map((sf) => (
                   <span
                     key={sf.id}
-                    className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-bg-elev-1 text-xs font-mono text-text hover:border-border-strong transition-colors"
+                    className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono transition-colors ${
+                      sf.status === 'PROPOSED'
+                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                        : 'border-border bg-bg-elev-1 text-text hover:border-border-strong'
+                    }`}
                   >
                     <span>{sf.value?.name || sf.key}</span>
+                    {sf.status === 'PROPOSED' && (
+                      <button
+                        onClick={() => handleConfirmFact(sf.id)}
+                        disabled={actingFactId === sf.id}
+                        title="Verify skill"
+                        className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteFact(sf.id)}
                       className="opacity-0 group-hover:opacity-100 hover:text-err transition-opacity"

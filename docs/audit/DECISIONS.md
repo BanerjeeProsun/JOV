@@ -58,3 +58,12 @@
     - Unauthenticated: renders `Your next role, in focus.`
   - Integrated `AuthModal` at application root level and surfaced sign-in triggers in `FloatingNav`, `OverviewScreen`, and `SettingsScreen`.
   - Added dedicated "Account & Identity" tab in `SettingsScreen` for updating display name and rotating passwords.
+
+## Decision 007: Master-Resume Fact Extraction & Provenance Workflow Verification
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Ingestion of PDF/DOCX master resumes extracts facts with cryptographic document SHA-256 hash provenance and sets status to `PROPOSED`. In strict provenance mode, proposed facts are not usable in downstream application packaging until verified by the candidate.
+- **Decision**:
+  - Connected `CandidateProfileScreen.tsx` to `api.confirmFact` and `api.confirmAllFacts`.
+  - Added prominent proposed fact review banner displaying the number of pending facts with a one-click "Confirm All" verification button.
+  - Added inline verification triggers on individual proposed facts (experience, education, and skills) so candidates can audit facts selectively before activation.

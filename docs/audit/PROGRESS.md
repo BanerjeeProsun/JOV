@@ -11,9 +11,9 @@
 | **M0** | Recon, Inventory, Recovery Plan | **COMPLETED** | 115 / 115 | `1b98d5c` |
 | **M1** | Strict Authentication, Identity & Isolation | **COMPLETED** | 124 / 124 | `753f0cf` |
 | **M2** | Configuration, Secrets Hygiene, LLM Provider | **COMPLETED** | 133 / 133 | `7732d7d` |
-| **M3** | Zombie-Code Removal & Mock Isolation | **COMPLETED** | 133 / 133 | Pending |
-| **M4** | Master-Resume Ingestion & Profile Verification | **IN PROGRESS** | - | - |
-| **M5** | Source Registry & Real ATS Connectors | **PENDING** | - | - |
+| **M3** | Zombie-Code Removal & Mock Isolation | **COMPLETED** | 133 / 133 | `b7feb30` |
+| **M4** | Master-Resume Ingestion & Profile Verification | **COMPLETED** | 133 / 133 | Pending |
+| **M5** | Source Registry & Real ATS Connectors | **IN PROGRESS** | - | - |
 | **M6** | Normalized Schema, Geo Dataset & Parser | **PENDING** | - | - |
 | **M7** | Search & Filters: Facets, URL State & UI Wiring | **PENDING** | - | - |
 | **M8** | Aggregator/Feed Connectors & Manual Import | **PENDING** | - | - |
@@ -130,3 +130,21 @@
   - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 894ms.
   - `cd web; npm run lint` -> 28 warnings, 0 errors.
 - **Definition of Done for M3**: Dead components safely deleted with zero test breakage or frontend compile issues.
+
+---
+
+### Milestone 4: Master-Resume Ingestion & Profile Verification
+- **Scope**: Verify end-to-end master-resume upload flow (PDF/DOCX/TXT), provenance tracking with document SHA-256 hash, proposed fact state machine, and wire the UI confirmation review banner and inline fact verification controls.
+- **Implemented & Verified**:
+  - `src/jovsi/services/resume_parser.py`: Verified `MasterResumeParser` handles PDF, DOCX, and TXT with magic verification, scanned PDF rejection (empty text check), entity extraction (contact, education, experience, projects, skills), and proposed fact generation with source document SHA-256 links.
+  - `web/src/screens/CandidateProfileScreen.tsx`:
+    - Wired `handleConfirmFact(factId)` to `api.confirmFact`.
+    - Wired `handleConfirmAllFacts()` to `api.confirmAllFacts`.
+    - Added prominent review banner when proposed facts exist with a single-click "Confirm All" verification button.
+    - Added inline verification triggers on individual proposed facts (experience, education, and skills) with visual status indication (`ACTIVE` vs `PROPOSED`).
+  - `docs/audit/DECISIONS.md`: Recorded Decision 007 (Master-Resume Fact Extraction & Provenance Workflow Verification).
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 133 passed, 0 failed in 35.50s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 892ms.
+  - `cd web; npm run lint` -> 28 warnings, 0 errors.
+- **Definition of Done for M4**: Upload, extraction, provenance grounding, and candidate fact confirmation fully verified end-to-end across backend and frontend.
