@@ -12,7 +12,8 @@ import {
   LogOut,
   FileCheck2,
   Sparkles,
-  Lock,
+  KeyRound,
+  UserPlus,
   Globe2,
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -150,27 +151,39 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
                 </button>
               </>
             ) : (
-              <>
+              <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Magnetic strength={8}>
                   <Button
                     variant="primary"
                     size="lg"
-                    onClick={openAuthModal}
+                    onClick={() => openAuthModal('login')}
                     className="shadow-float"
                   >
                     <LogIn className="w-4 h-4" />
-                    <span>Sign In or Create Account</span>
+                    <span>Sign In</span>
                   </Button>
                 </Magnetic>
 
-                <a
-                  href="#product-architecture"
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => openAuthModal('register')}
+                  className="shadow-subtle"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Create Account</span>
+                </Button>
+
+                <button
+                  onClick={() => {
+                    document.getElementById('product-architecture')?.scrollIntoView({ behavior: 'smooth' })
+                  }}
                   className="inline-flex items-center gap-2 px-4 py-3 text-[14px] font-medium text-text-2 hover:text-text transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-full cursor-pointer"
                 >
-                  <span>Explore Product Features</span>
+                  <span>Explore Product</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                </a>
-              </>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -414,7 +427,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
               {/* Pillar 4 */}
               <div className="p-7 rounded-2xl bg-bg-elev-1/60 border border-border space-y-4 shadow-subtle hover:border-border-strong transition-colors">
                 <div className="w-11 h-11 rounded-xl bg-bg border border-border flex items-center justify-center">
-                  <Lock className="w-5 h-5 text-text" strokeWidth={1.5} />
+                  <KeyRound className="w-5 h-5 text-text" strokeWidth={1.5} />
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-text">
@@ -493,10 +506,25 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
               </p>
             </div>
 
-            <div className="flex justify-center items-center gap-4 pt-2">
-              <Button variant="primary" size="lg" onClick={openAuthModal} className="shadow-float">
+            <div className="flex flex-wrap justify-center items-center gap-4 pt-2">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => openAuthModal('login')}
+                className="shadow-float"
+              >
                 <LogIn className="w-4 h-4" />
-                <span>Sign In / Create Account</span>
+                <span>Sign In</span>
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => openAuthModal('register')}
+                className="shadow-subtle"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Create Account</span>
               </Button>
             </div>
           </section>

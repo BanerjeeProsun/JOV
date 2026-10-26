@@ -8,7 +8,7 @@ interface AuthContextType {
   loading: boolean
   isAuthenticated: boolean
   isSandboxMode: boolean
-  openAuthModal: () => void
+  openAuthModal: (tab?: 'login' | 'register' | unknown) => void
   closeAuthModal: () => void
   logout: () => Promise<void>
   refreshUser: () => Promise<User | null>
@@ -21,6 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
   const [isSandboxMode, setIsSandboxMode] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login')
 
   const refreshUser = useCallback(async (): Promise<User | null> => {
     try {
@@ -51,7 +52,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser()
   }, [refreshUser])
 
-  const openAuthModal = useCallback(() => {
+  const openAuthModal = useCallback((tab?: 'login' | 'register' | unknown) => {
+    if (tab === 'register' || tab === 'login') {
+      setAuthModalTab(tab)
+    } else {
+      setAuthModalTab('login')
+    }
     setIsAuthModalOpen(true)
   }, [])
 
@@ -90,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
       <AuthModal
         open={isAuthModalOpen}
+        initialTab={authModalTab}
         onClose={closeAuthModal}
         onSuccess={handleAuthenticated}
       />

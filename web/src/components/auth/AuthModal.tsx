@@ -7,14 +7,23 @@ import { LogIn, UserPlus, KeyRound, CheckCircle2, AlertCircle } from 'lucide-rea
 
 interface AuthModalProps {
   open: boolean
+  initialTab?: 'login' | 'register'
   onClose: () => void
   onSuccess: (user: User) => void
 }
 
 type TabType = 'login' | 'register' | 'forgot'
 
-export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onSuccess }) => {
-  const [tab, setTab] = useState<TabType>('login')
+export const AuthModal: React.FC<AuthModalProps> = ({ open, initialTab, onClose, onSuccess }) => {
+  const [tab, setTab] = useState<TabType>(initialTab || 'login')
+
+  React.useEffect(() => {
+    if (open && initialTab) {
+      setTab(initialTab)
+      setError(null)
+      setSuccessMessage(null)
+    }
+  }, [open, initialTab])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')

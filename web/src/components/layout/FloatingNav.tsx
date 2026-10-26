@@ -11,7 +11,7 @@ import {
   Search,
   LogIn,
   LogOut,
-  Lock,
+  UserPlus,
 } from 'lucide-react'
 import { motion, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
 import { JLogo } from '../brand/JLogo'
@@ -108,19 +108,19 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
     }
   })
 
-  const handleTabClick = (tabId: TabId) => {
-    const isPrivate = tabId !== 'overview' && tabId !== 'diagnostics'
-    if (isPrivate && !hasFullAccess) {
-      onSelectTab(tabId)
-      openAuthModal()
-      return
-    }
-    onSelectTab(tabId)
-  }
-
   const handleLogout = async () => {
     await logout()
     onSelectTab('overview')
+  }
+
+  const handleExploreProduct = () => {
+    onSelectTab('overview')
+    setTimeout(() => {
+      const el = document.getElementById('product-architecture')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+      }
+    }, 50)
   }
 
   return (
@@ -133,7 +133,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
         }}
       />
 
-      {/* Desktop & Tablet Floating Nav */}
+      {/* Top Floating Glass Header / Navbar */}
       <motion.header
         initial={{ y: -80, opacity: 0 }}
         animate={{
@@ -142,90 +142,87 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
         }}
         transition={spring.smooth}
         onFocusCapture={() => setNavVisible(true)}
-        className={`fixed top-4 inset-x-0 mx-auto w-fit z-50 hidden sm:block ${className}`}
+        className={`fixed top-4 inset-x-3 sm:inset-x-0 mx-auto w-fit z-50 ${
+          hasFullAccess ? 'hidden sm:block' : 'block'
+        } ${className}`}
         aria-label="Main navigation"
       >
-        <div className="glass flex items-center h-14 rounded-full p-1.5 gap-1 shadow-float">
-          {/* Logo with shared layoutId */}
-          <button
-            onClick={() => onSelectTab('overview')}
-            className="flex items-center gap-2 pl-3 pr-2.5 py-1 text-text rounded-full hover:opacity-85 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
-            aria-label="JOV.si home"
-          >
-            <JLogo size={26} layoutId="brand-j" variant="mark" />
-            <span className="font-semibold text-[14px] tracking-tight text-text">
-              JOV<span className="text-text-3">.si</span>
-            </span>
-          </button>
-
-          <div className="h-4 w-[1px] bg-border mx-1" />
-
-          {/* Nav Items */}
-          <nav className="flex items-center gap-0.5">
-            {NAV_ITEMS.map((item) => {
-              const active = activeTab === item.id
-              const Icon = item.icon
-              const isPrivate = item.id !== 'overview' && item.id !== 'diagnostics'
-              const isLocked = isPrivate && !hasFullAccess
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleTabClick(item.id)}
-                  aria-current={active ? 'page' : undefined}
-                  title={isLocked ? `${item.label} (Sign in required)` : item.label}
-                  className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
-                    active ? 'text-text' : 'text-text-2 hover:text-text hover:bg-selected/40'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer`}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="nav-pill"
-                      className="absolute inset-0 rounded-full bg-selected border border-border pointer-events-none"
-                      transition={spring.layout}
-                    />
-                  )}
-                  <Icon className="relative z-10 w-4 h-4 shrink-0" strokeWidth={1.5} />
-                  <span className="relative z-10 hidden sm:inline flex items-center gap-1">
-                    {item.label}
-                    {isLocked && (
-                      <Lock className="w-2.5 h-2.5 opacity-60 text-text-3" strokeWidth={1.5} />
-                    )}
-                  </span>
-                </button>
-              )
-            })}
-          </nav>
-
-          <div className="h-4 w-[1px] bg-border mx-1" />
-
-          {/* Quick Actions: Search Palette & Theme Switch */}
-          <div className="flex items-center gap-1 pr-1">
-            {onOpenCommand && (
-              <button
-                onClick={onOpenCommand}
-                aria-label="Search and quick actions (Ctrl+K or Cmd+K)"
-                className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
-              >
-                <Search className="w-4 h-4 text-text-2 hover:text-text transition-colors" strokeWidth={1.5} />
-              </button>
-            )}
-
+        {hasFullAccess ? (
+          /* ========================================================================= */
+          /* AUTHENTICATED WORKSPACE NAVIGATION BAR (When Signed In / Testing Mode)    */
+          /* ========================================================================= */
+          <div className="glass flex items-center h-14 rounded-full p-1.5 gap-1 shadow-float">
+            {/* Logo */}
             <button
-              onClick={(e) => toggleTheme(e)}
-              aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-              className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+              onClick={() => onSelectTab('overview')}
+              className="flex items-center gap-2 pl-3 pr-2.5 py-1 text-text rounded-full hover:opacity-85 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+              aria-label="JOV.si home"
             >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="w-4 h-4" strokeWidth={1.5} />
-              ) : (
-                <Moon className="w-4 h-4" strokeWidth={1.5} />
-              )}
+              <JLogo size={26} layoutId="brand-j" variant="mark" />
+              <span className="font-semibold text-[14px] tracking-tight text-text">
+                JOV<span className="text-text-3">.si</span>
+              </span>
             </button>
 
-            <div className="h-4 w-[1px] bg-border mx-0.5" />
+            <div className="h-4 w-[1px] bg-border mx-1" />
 
-            {isAuthenticated ? (
+            {/* Nav Items (Clean, No Lock Icons) */}
+            <nav className="flex items-center gap-0.5">
+              {NAV_ITEMS.map((item) => {
+                const active = activeTab === item.id
+                const Icon = item.icon
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onSelectTab(item.id)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+                      active ? 'text-text' : 'text-text-2 hover:text-text hover:bg-selected/40'
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="nav-pill"
+                        className="absolute inset-0 rounded-full bg-selected border border-border pointer-events-none"
+                        transition={spring.layout}
+                      />
+                    )}
+                    <Icon className="relative z-10 w-4 h-4 shrink-0" strokeWidth={1.5} />
+                    <span className="relative z-10 hidden sm:inline">{item.label}</span>
+                  </button>
+                )
+              })}
+            </nav>
+
+            <div className="h-4 w-[1px] bg-border mx-1" />
+
+            {/* Quick Actions: Search Palette & Theme Switch */}
+            <div className="flex items-center gap-1 pr-1">
+              {onOpenCommand && (
+                <button
+                  onClick={onOpenCommand}
+                  aria-label="Search and quick actions (Ctrl+K or Cmd+K)"
+                  className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+                >
+                  <Search className="w-4 h-4 text-text-2 hover:text-text transition-colors" strokeWidth={1.5} />
+                </button>
+              )}
+
+              <button
+                onClick={(e) => toggleTheme(e)}
+                aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+                className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+              >
+                {resolvedTheme === 'dark' ? (
+                  <Sun className="w-4 h-4" strokeWidth={1.5} />
+                ) : (
+                  <Moon className="w-4 h-4" strokeWidth={1.5} />
+                )}
+              </button>
+
+              <div className="h-4 w-[1px] bg-border mx-0.5" />
+
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => onSelectTab('settings')}
@@ -246,60 +243,113 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
                   <span className="hidden lg:inline text-[11px]">Sign Out</span>
                 </button>
               </div>
-            ) : (
+            </div>
+          </div>
+        ) : (
+          /* ========================================================================= */
+          /* UNAUTHENTICATED PUBLIC HEADER: EXPLORE PRODUCT · SIGN IN · CREATE ACCOUNT */
+          /* (No workspace nav tabs, zero lock icons)                                   */
+          /* ========================================================================= */
+          <div className="glass flex items-center h-14 rounded-full p-1.5 gap-2 shadow-float border border-border">
+            {/* Logo */}
+            <button
+              onClick={() => {
+                onSelectTab('overview')
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+              className="flex items-center gap-2 pl-3 pr-2.5 py-1 text-text rounded-full hover:opacity-85 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+              aria-label="JOV.si home"
+            >
+              <JLogo size={26} layoutId="brand-j" variant="mark" />
+              <span className="font-semibold text-[14px] tracking-tight text-text">
+                JOV<span className="text-text-3">.si</span>
+              </span>
+            </button>
+
+            <div className="h-4 w-[1px] bg-border mx-0.5" />
+
+            {/* Explore Product Button */}
+            <button
+              onClick={handleExploreProduct}
+              className="px-3 py-1.5 rounded-full text-[13px] font-medium text-text-2 hover:text-text hover:bg-selected/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+            >
+              <span>Explore Product</span>
+            </button>
+
+            <div className="h-4 w-[1px] bg-border mx-0.5" />
+
+            {/* Theme Toggle */}
+            <button
+              onClick={(e) => toggleTheme(e)}
+              aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+              className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="w-4 h-4" strokeWidth={1.5} />
+              ) : (
+                <Moon className="w-4 h-4" strokeWidth={1.5} />
+              )}
+            </button>
+
+            <div className="h-4 w-[1px] bg-border mx-0.5" />
+
+            {/* Sign In & Create Account Actions */}
+            <div className="flex items-center gap-1.5 pr-1">
               <button
-                onClick={openAuthModal}
+                onClick={() => openAuthModal('login')}
                 aria-label="Sign in"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium text-accent-contrast bg-accent hover:opacity-90 shadow-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium text-text-2 hover:text-text hover:bg-selected/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Sign In</span>
               </button>
-            )}
+
+              <button
+                onClick={() => openAuthModal('register')}
+                aria-label="Create account"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium text-accent-contrast bg-accent hover:opacity-90 shadow-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Create Account</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </motion.header>
 
-      {/* Mobile Bottom Tab Bar (<640px) */}
-      <nav
-        className="fixed bottom-3 left-3 right-3 z-50 sm:hidden"
-        aria-label="Mobile navigation"
-      >
-        <div className="glass flex items-center justify-around h-14 rounded-full px-2 shadow-float border border-border">
-          {NAV_ITEMS.map((item) => {
-            const active = activeTab === item.id
-            const Icon = item.icon
-            const isPrivate = item.id !== 'overview' && item.id !== 'diagnostics'
-            const isLocked = isPrivate && !hasFullAccess
+      {/* Mobile Bottom Tab Bar (<640px) — ONLY rendered when authenticated / full access */}
+      {hasFullAccess && (
+        <nav
+          className="fixed bottom-3 left-3 right-3 z-50 sm:hidden"
+          aria-label="Mobile navigation"
+        >
+          <div className="glass flex items-center justify-around h-14 rounded-full px-2 shadow-float border border-border">
+            {NAV_ITEMS.map((item) => {
+              const active = activeTab === item.id
+              const Icon = item.icon
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleTabClick(item.id)}
-                aria-current={active ? 'page' : undefined}
-                className={`relative flex flex-col items-center justify-center p-2 rounded-full text-xs ${
-                  active ? 'text-text' : 'text-text-3'
-                }`}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="mobile-nav-pill"
-                    className="absolute inset-0 rounded-full bg-selected border border-border pointer-events-none"
-                    transition={spring.layout}
-                  />
-                )}
-                <div className="relative">
-                  <Icon className="relative z-10 w-4 h-4" strokeWidth={1.5} />
-                  {isLocked && (
-                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-text-3" />
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onSelectTab(item.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative flex flex-col items-center justify-center p-2 rounded-full text-xs ${
+                    active ? 'text-text' : 'text-text-3'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="mobile-nav-pill"
+                      className="absolute inset-0 rounded-full bg-selected border border-border pointer-events-none"
+                      transition={spring.layout}
+                    />
                   )}
-                </div>
-                <span className="sr-only">{item.label}</span>
-              </button>
-            )
-          })}
+                  <Icon className="relative z-10 w-4 h-4" strokeWidth={1.5} />
+                  <span className="sr-only">{item.label}</span>
+                </button>
+              )
+            })}
 
-          {isAuthenticated && (
             <button
               onClick={handleLogout}
               aria-label="Sign out"
@@ -309,17 +359,17 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
               <LogOut className="w-4 h-4" strokeWidth={1.5} />
               <span className="sr-only">Sign Out</span>
             </button>
-          )}
 
-          <button
-            onClick={(e) => toggleTheme(e)}
-            aria-label="Toggle theme"
-            className="p-2 text-text-3 hover:text-text cursor-pointer"
-          >
-            {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" strokeWidth={1.5} /> : <Moon className="w-4 h-4" strokeWidth={1.5} />}
-          </button>
-        </div>
-      </nav>
+            <button
+              onClick={(e) => toggleTheme(e)}
+              aria-label="Toggle theme"
+              className="p-2 text-text-3 hover:text-text cursor-pointer"
+            >
+              {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" strokeWidth={1.5} /> : <Moon className="w-4 h-4" strokeWidth={1.5} />}
+            </button>
+          </div>
+        </nav>
+      )}
     </>
   )
 }

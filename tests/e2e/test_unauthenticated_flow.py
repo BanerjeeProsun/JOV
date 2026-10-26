@@ -1,13 +1,20 @@
-"""End-to-End Test for Unauthenticated Product Tour and Auth Gate Barrier.
+"""End-to-End Test for Unauthenticated Product Tour, Clean Public Header, and Auth Lifecycle.
 
 Verifies:
 1. When an unauthenticated visitor opens JOV.si:
    - The public Product Showcase and Feature Tour is rendered.
-   - Private workspace features are gated (Jobs, Queue, Tracker, Profile, Settings).
-   - "Sign In or Create Account" CTAs are displayed.
-2. When user registers or logs in:
-   - Full workspace features and Command Center are unlocked.
-   - Persisted display name greeting is displayed.
+   - The workspace navigation bar with internal tabs (Jobs, Queue, Tracker, Profile, Settings) is NOT rendered.
+   - Zero lock icons are present.
+   - The public header offers "Explore Product", "Sign In", and "Create Account".
+2. When the visitor clicks "Create Account":
+   - The AuthModal opens with the Create Account registration form.
+3. Upon registration:
+   - Full workspace navigation bar is unlocked with all tabs (Overview, Jobs, Queue, Tracker, Profile, Settings).
+   - Zero lock icons are shown on any tab.
+   - Personalized display name greeting and Command Center metrics are displayed.
+4. When the user clicks "Sign Out":
+   - Session is revoked.
+   - Header reverts back to public unauthenticated state ("Explore Product", "Sign In", "Create Account").
 """
 
 import threading
@@ -79,43 +86,38 @@ async def test_unauthenticated_landing_and_auth_gate(mock_server, tmp_path) -> N
         await page.wait_for_selector("text=Real Multi-Source ATS Discovery", timeout=10000)
         await page.wait_for_selector("text=Two-Phase Eligibility & Explainable Fit", timeout=10000)
         await page.wait_for_selector("text=15-Point Pre-Submission Safety Gate", timeout=10000)
-        await page.wait_for_selector("text=Master-Resume Fact Provenance")
-        await page.wait_for_selector("text=Real Multi-Source ATS Discovery")
-        await page.wait_for_selector("text=Two-Phase Eligibility & Explainable Fit")
-        await page.wait_for_selector("text=15-Point Pre-Submission Safety Gate")
 
-        # Verify Primary CTA is visible
-        sign_in_cta = page.locator("button:has-text('Sign In or Create Account')").first
-        await sign_in_cta.wait_for()
+        # Verify public header options: "Explore Product", "Sign In", "Create Account"
+        header = page.locator("header[aria-label='Main navigation']")
+        await header.wait_for()
+        assert await header.locator("button:has-text('Explore Product')").is_visible()
+        assert await header.locator("button:has-text('Sign In')").is_visible()
+        assert await header.locator("button:has-text('Create Account')").is_visible()
 
-        # Step B: Click a private navigation tab (Jobs) as unauthenticated visitor
-        await page.click("button:has-text('Jobs')")
+        # Verify workspace navigation tabs (Jobs, Queue, etc.) are NOT in header
+        assert not await header.locator("button:has-text('Jobs')").is_visible()
+        assert not await header.locator("button:has-text('Queue')").is_visible()
 
-        # Verify Auth Gate barrier is displayed for Jobs
-        await page.wait_for_selector("text=Job Discovery & Multi-Source Feeds")
-        await page.wait_for_selector("text=Sign in or create an account to unlock this workspace.")
+        # Step B: Click "Create Account" in the header to open registration directly
+        await header.locator("button:has-text('Create Account')").click()
 
-        # Step C: Sign Up / Register a new user account through AuthModal
+        # Step C: Fill and submit registration form inside dialog
         dialog = page.locator("[role='dialog']")
         await dialog.wait_for()
-        await dialog.locator("button:has-text('Create Account')").click()
-
-        # Fill registration form inside dialog
         await dialog.locator("input[type='text']").fill("Margaret Hamilton")
         await dialog.locator("input[type='email']").fill("margaret@apollo.nasa.gov")
         await dialog.locator("input[type='password']").fill("Apollo11GuidanceSecret!")
 
-        # Submit registration
         submit_btn = dialog.locator("form button[type='submit']")
         await submit_btn.click()
 
-        # Step D: Once authenticated, verify full feature access is granted
-        # Jobs screen should now be fully unlocked and rendered
-        await page.wait_for_selector("text=Job Discovery", timeout=10000)
-        await page.wait_for_selector("button:has-text('Import Job Posting')")
-
-        # Navigate back to Overview
-        await page.click("button:has-text('Overview')")
+        # Step D: Once authenticated, verify full workspace features and navigation are unlocked
+        # Header now shows full workspace navigation
+        await page.wait_for_selector("header nav button:has-text('Jobs')", timeout=10000)
+        await page.wait_for_selector("header nav button:has-text('Queue')")
+        await page.wait_for_selector("header nav button:has-text('Tracker')")
+        await page.wait_for_selector("header nav button:has-text('Profile')")
+        await page.wait_for_selector("header nav button:has-text('Settings')")
 
         # Verify personalized display name greeting and Command Center
         await page.wait_for_selector("text=Welcome back,")
@@ -123,18 +125,28 @@ async def test_unauthenticated_landing_and_auth_gate(mock_server, tmp_path) -> N
         await page.wait_for_selector("text=Awaiting Review")
         await page.wait_for_selector("text=Suitable Opportunities")
 
-        # Navigate to Profile - should be unlocked
-        await page.click("button:has-text('Profile')")
+        # Navigate to Jobs screen
+        await page.click("header nav button:has-text('Jobs')")
+        await page.wait_for_selector("text=Job Discovery", timeout=10000)
+        await page.wait_for_selector("button:has-text('Import Job Posting')")
+
+        # Navigate to Profile screen
+        await page.click("header nav button:has-text('Profile')")
         await page.wait_for_selector("text=Candidate Profile & Fact Graph")
 
-        # Step E: Verify Sign Out option is accessible and returns to Product Showcase
-        sign_out_btn = page.locator("button:has-text('Sign Out')").first
+        # Step E: Verify Sign Out returns to clean public landing header
+        sign_out_btn = page.locator("header button[aria-label='Sign out']")
         await sign_out_btn.wait_for()
         await sign_out_btn.click()
 
-        # Should return to public Product Showcase with sign in CTA
+        # Should return to public Product Showcase and header with Explore Product / Sign In / Create Account
         await page.wait_for_selector("text=Master-Resume Fact Provenance")
-        await page.wait_for_selector("button:has-text('Sign In or Create Account')")
+        await page.wait_for_selector("header button:has-text('Explore Product')")
+        await page.wait_for_selector("header button:has-text('Sign In')")
+        await page.wait_for_selector("header button:has-text('Create Account')")
+
+        # Workspace tabs are once again hidden
+        assert not await header.locator("button:has-text('Jobs')").is_visible()
 
         await context.close()
         await browser.close()
