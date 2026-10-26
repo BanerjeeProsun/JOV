@@ -50,11 +50,6 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
   const { resolvedTheme, toggleTheme } = useTheme()
   const reducedMotion = useReducedMotion()
   const [navVisible, setNavVisible] = useState(true)
-  const [isMac, setIsMac] = useState(false)
-
-  useEffect(() => {
-    setIsMac(typeof navigator !== 'undefined' && /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent))
-  }, [])
 
   const { scrollY } = useScroll()
 
@@ -173,25 +168,22 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
 
           <div className="h-4 w-[1px] bg-border mx-1" />
 
-          {/* Quick Actions: Command Palette & Theme Switch */}
+          {/* Quick Actions: Search Palette & Theme Switch */}
           <div className="flex items-center gap-1 pr-1">
             {onOpenCommand && (
               <button
                 onClick={onOpenCommand}
-                aria-label={isMac ? "Open search (Cmd+K)" : "Open search (Ctrl+K)"}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-text-3 hover:text-text hover:bg-selected transition-colors text-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus group cursor-pointer"
+                aria-label="Search and quick actions (Ctrl+K or Cmd+K)"
+                className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
               >
-                <Search className="w-3.5 h-3.5 text-text-3 group-hover:text-text transition-colors" strokeWidth={1.5} />
-                <kbd className="hidden md:inline font-mono text-[10px] bg-bg-input px-1.5 py-0.5 rounded border border-border text-text-2 group-hover:text-text transition-colors">
-                  {isMac ? '⌘K' : 'Ctrl K'}
-                </kbd>
+                <Search className="w-4 h-4 text-text-2 hover:text-text transition-colors" strokeWidth={1.5} />
               </button>
             )}
 
             <button
               onClick={(e) => toggleTheme(e)}
               aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-              className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              className="p-2 rounded-full text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
             >
               {resolvedTheme === 'dark' ? (
                 <Sun className="w-4 h-4" strokeWidth={1.5} />
