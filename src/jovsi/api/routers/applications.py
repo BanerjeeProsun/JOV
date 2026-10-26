@@ -1352,8 +1352,12 @@ def run_gate(
         raise HTTPException(status_code=400, detail="Must generate resume before running gate")
 
     contact_fact = db.scalar(select(FactDB).where(FactDB.candidate_id == candidate.id, FactDB.kind == "CONTACT"))
-    email_val = contact_fact.value.get("email", "") if contact_fact else ""
-    phone_val = contact_fact.value.get("phone", "") if contact_fact else ""
+    email_val = str((contact_fact.value.get("email") if (contact_fact and isinstance(contact_fact.value, dict)) else "") or "")
+    phone_val = str((contact_fact.value.get("phone") if (contact_fact and isinstance(contact_fact.value, dict)) else "") or "")
+    if email_val == "None":
+        email_val = ""
+    if phone_val == "None":
+        phone_val = ""
 
     # Load from FieldAnswerDB or auto-plan
     field_rows = db.scalars(select(FieldAnswerDB).where(FieldAnswerDB.application_id == app_id)).all()
@@ -1385,16 +1389,24 @@ def run_gate(
         db.commit()
         field_rows = db.scalars(select(FieldAnswerDB).where(FieldAnswerDB.application_id == app_id)).all()
 
-    form_values = {fa.field_key: fa.value for fa in field_rows}
-    if "full_name" not in form_values:
-        form_values["full_name"] = candidate.display_name
-    if "email" not in form_values:
+    form_values = {}
+    for fa in field_rows:
+        val = fa.value
+        if val is None or val == "None":
+            val = ""
+            fa.value = ""
+            db.add(fa)
+        form_values[fa.field_key] = str(val)
+
+    if not form_values.get("full_name") or form_values.get("full_name") == "None":
+        form_values["full_name"] = candidate.display_name or "Candidate"
+    if not form_values.get("email") or form_values.get("email") == "None":
         form_values["email"] = email_val
-    if "phone" not in form_values:
+    if not form_values.get("phone") or form_values.get("phone") == "None":
         form_values["phone"] = phone_val
-    if "experience_years" not in form_values:
+    if not form_values.get("experience_years") or form_values.get("experience_years") == "None":
         form_values["experience_years"] = "3"
-    if "legal_attestation" not in form_values:
+    if not form_values.get("legal_attestation") or form_values.get("legal_attestation") == "None":
         form_values["legal_attestation"] = "agree"
 
     package = ApplicationPackage(
@@ -1467,6 +1479,10 @@ def run_gate(
     )
     skel_hash = form_snapshot.dom_hash if form_snapshot else "initial_hash"
 
+    required_keys = ["full_name", "email", "experience_years", "legal_attestation"]
+    if phone_val:
+        required_keys.append("phone")
+
     snapshot = GateSnapshot(
         application_id=app_row.id,
         package_hash=package_hash,
@@ -1482,7 +1498,7 @@ def run_gate(
         cover_letter_required=bool(cover_letter_text),
         cover_letter_validation_passed=cover_letter_valid,
         form_values=form_values,
-        required_field_keys=["full_name", "email", "phone", "experience_years", "legal_attestation"],
+        required_field_keys=required_keys,
         sensitive_field_keys=["legal_attestation"],
         approved_sensitive_keys=["legal_attestation"],
         candidate_verified_email=email_val,

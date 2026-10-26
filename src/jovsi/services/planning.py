@@ -146,19 +146,21 @@ class ApplicationPlanningService:
         for cf in contact_facts:
             contact_fact_id = cf.id
             val = cf.value
-            if "name" in val and not full_name:
+            if "name" in val and val["name"] is not None and not full_name:
                 full_name = str(val["name"])
-            if "email" in val and not email:
+            if "display_name" in val and val["display_name"] is not None and not full_name:
+                full_name = str(val["display_name"])
+            if "email" in val and val["email"] is not None and not email:
                 email = str(val["email"])
-            if "phone" in val and not phone:
+            if "phone" in val and val["phone"] is not None and not phone:
                 phone = str(val["phone"])
-            if "location" in val and not location:
+            if "location" in val and val["location"] is not None and not location:
                 location = str(val["location"])
-            if "linkedin" in val and not linkedin:
+            if "linkedin" in val and val["linkedin"] is not None and not linkedin:
                 linkedin = str(val["linkedin"])
-            if "github" in val and not github:
+            if "github" in val and val["github"] is not None and not github:
                 github = str(val["github"])
-            if "portfolio" in val and not portfolio:
+            if "portfolio" in val and val["portfolio"] is not None and not portfolio:
                 portfolio = str(val["portfolio"])
 
         # 2. Experience Years Calculation

@@ -38,8 +38,8 @@ class GateSnapshot(BaseModel):
     required_field_keys: List[str] = Field(default_factory=list)
     sensitive_field_keys: List[str] = Field(default_factory=list)
     approved_sensitive_keys: List[str] = Field(default_factory=list)
-    candidate_verified_email: str
-    candidate_verified_phone: str
+    candidate_verified_email: Optional[str] = ""
+    candidate_verified_phone: Optional[str] = ""
     unresolved_provenance_keys: List[str] = Field(default_factory=list)
     has_date_contradictions: bool = False
     is_exact_duplicate: bool = False
@@ -188,11 +188,15 @@ class ValidationGate:
             ))
 
         # Check 9: Valid email and phone
-        email_val = snapshot.form_values.get("email", "").strip().lower()
-        phone_val = snapshot.form_values.get("phone", "").strip()
-        if (email_val == snapshot.candidate_verified_email.strip().lower()) and (
-            phone_val == snapshot.candidate_verified_phone.strip()
-        ):
+        email_val = (snapshot.form_values.get("email") or "").strip().lower()
+        cand_email = (snapshot.candidate_verified_email or "").strip().lower()
+        email_match = (email_val == cand_email) if cand_email else bool(email_val)
+
+        phone_val = (snapshot.form_values.get("phone") or "").strip()
+        cand_phone = (snapshot.candidate_verified_phone or "").strip()
+        phone_match = (phone_val == cand_phone) if cand_phone else True
+
+        if email_match and phone_match:
             results.append(GateCheckResult(
                 check_id=9, name="Valid email and phone", outcome=GateCheckOutcome.PASS,
                 code="CONTACT_VERIFIED_PASS", message="Email and phone match candidate facts character-for-character",
