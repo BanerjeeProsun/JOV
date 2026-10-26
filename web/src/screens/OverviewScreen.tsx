@@ -61,7 +61,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
       </div>
 
       {/* Hero Section — Unboxed Asymmetric Cinematic Composition */}
-      <section className="relative w-full overflow-hidden min-h-[520px] sm:min-h-[580px] lg:min-h-[620px] flex items-center py-10 sm:py-14 lg:py-16">
+      <section className="relative w-full overflow-hidden pt-2 sm:pt-4 pb-12 sm:pb-16 min-h-[440px] lg:min-h-[480px] flex items-center">
         {/* Absolute Composited Hero Video Layer */}
         <div
           className="hero-video-layer absolute inset-y-0 right-0 w-full sm:w-[85%] md:w-[74%] lg:w-[65%] max-w-[1100px] h-full pointer-events-none select-none z-0"
@@ -72,11 +72,6 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
 
         {/* Left Hero Typographic Content & Primary Actions */}
         <div className="relative z-10 max-w-xl lg:max-w-2xl space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-bg-elev-1 text-[11px] font-medium tracking-wide uppercase text-text-3 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-            <span>{hasResume ? 'Candidate Workspace' : 'Scattered → Clarity'}</span>
-          </div>
-
           <div className="overflow-visible pr-2">
             {hasResume ? (
               <h1 className="text-[clamp(2.5rem,5.5vw,4.5rem)] font-semibold tracking-tight leading-[1.02] text-text">
