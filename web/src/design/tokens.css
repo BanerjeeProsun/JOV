@@ -64,6 +64,7 @@
   --font-mono: 'Geist Mono', SFMono-Regular, Consolas, monospace;
 }
 
+:root.dark,
 :root[data-theme="dark"] {
   /* Surfaces */
   --bg: #050506;

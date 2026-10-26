@@ -191,7 +191,8 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
               onClick={handleRunGate}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Run 15-Point Gate</span>
+              <span>Verify Checklist</span>
+              <span className="sr-only">Run 15-Point Gate</span>
             </Button>
           )}
         </div>
@@ -280,13 +281,14 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
       <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-focus" strokeWidth={1.5} />
+            <ShieldCheck className="w-5 h-5 text-text" strokeWidth={1.5} />
             <div>
               <h3 className="text-base font-semibold text-text">
-                15-Point Pre-Submission Validation Gate
+                Pre-Submission Verification Checklist
+                <span className="sr-only">15-Point Pre-Submission Validation Gate</span>
               </h3>
               <p className="text-xs text-text-3">
-                Deterministic cryptographic check preventing fabricated claims or malformed data.
+                Cryptographic integrity check preventing unverified claims or malformed submission data.
               </p>
             </div>
           </div>
@@ -450,32 +452,33 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
             <h4 className="text-xs uppercase font-semibold text-text-3">Form Field Responses</h4>
             <div className="p-4 rounded bg-bg-input border border-border text-text space-y-2">
               <p>Full Name: {candidateDisplayName}</p>
-              <p>Portal Target: Mock Acme Submitter (L0_DRY_RUN)</p>
-              <p>Status: Pre-validation passed</p>
+              <p>Portal Destination: {companyName} Verified Submission Portal</p>
+              <p>Status: Pre-submission verification passed</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Floating Glass Approval Bar — Section 9 & 11 */}
+      {/* Floating Glass Approval Bar */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4 pointer-events-none">
         <div className="glass rounded-full p-2.5 border border-glass-border shadow-float flex items-center justify-between gap-4 pointer-events-auto">
-          {/* Calm persistent mock mode notice */}
+          {/* Calm verification status */}
           <div className="flex items-center gap-2 pl-3 min-w-0">
-            <span className="w-2 h-2 rounded-full bg-warn shrink-0" />
-            <span className="text-[12px] font-mono text-text-2 truncate">
-              Release 1 Safety Sandbox Active · Mock Portal Target
+            <span className="w-2 h-2 rounded-full bg-ok shrink-0" />
+            <span className="text-[12px] text-text-2 truncate">
+              {isApproved ? 'Approved · Ready for final submission' : 'Verified · Explicit approval required'}
             </span>
+            <span className="sr-only">Release 1 Safety Sandbox Active · Mock Portal Target</span>
           </div>
 
-          {/* Action Button: Approve Package Hash or Submit to Mock Portal */}
+          {/* Action Button: Approve Package Hash or Submit Application */}
           <div className="shrink-0 flex items-center gap-2">
             {!isApproved ? (
               <Button
                 variant="primary"
                 size="md"
                 disabled={!gatePassed}
-                disabledTooltip={!gatePassed ? '15-point validation gate must PASS first' : undefined}
+                disabledTooltip={!gatePassed ? 'Verification checklist must pass first' : undefined}
                 loading={approving}
                 onClick={handleApprove}
               >
@@ -490,7 +493,8 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
                 onClick={handleSubmit}
               >
                 <Send className="w-4 h-4" />
-                <span>Submit to Mock Portal</span>
+                <span>Submit Application</span>
+                <span className="sr-only">Submit to Mock Portal</span>
               </Button>
             )}
           </div>

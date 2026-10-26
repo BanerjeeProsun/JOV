@@ -161,11 +161,11 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
     let blockingLabel = ''
     if (canEvaluate) blockingLabel = 'Requires eligibility scoring against job requirements'
     else if (canGenerateResume) blockingLabel = 'Tailored resume draft ready for factual synthesis'
-    else if (canRunGate) blockingLabel = 'Synthesized document awaits 15-point validation pass'
-    else if (canReview) blockingLabel = 'Validation passed. Candidate signature required'
+    else if (canRunGate) blockingLabel = 'Synthesized document awaits verification checklist'
+    else if (canReview) blockingLabel = 'Verification passed. Candidate review and sign-off required'
     else if (canSubmit) blockingLabel = 'Approved by candidate. Ready for portal submission'
-    else if (rawState === 'APPLIED_CONFIRMED') blockingLabel = 'Submission independently verified by oracle'
-    else if (rawState === 'SUBMISSION_UNCERTAIN') blockingLabel = 'Sent. Awaiting oracle audit confirmation'
+    else if (rawState === 'APPLIED_CONFIRMED') blockingLabel = 'Submission independently confirmed by employer portal'
+    else if (rawState === 'SUBMISSION_UNCERTAIN') blockingLabel = 'Sent. Awaiting confirmation receipt'
 
     return (
       <motion.div
@@ -294,7 +294,7 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
           <p className="page-kicker">Progressive Pipeline</p>
           <h1 className="page-title">Application Queue</h1>
           <p className="page-intro">
-            Active applications moving step-by-step through deterministic eligibility, tailored document synthesis, and 15-point validation.
+            Active applications moving step-by-step through eligibility scoring, tailored document synthesis, and verification checks.
           </p>
         </div>
 

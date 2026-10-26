@@ -45,17 +45,20 @@ export const AppShell: React.FC<AppShellProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-text">JOV.si</span>
             <span aria-hidden="true" className="opacity-40">·</span>
-            <span>v0.2.0</span>
-            <span aria-hidden="true" className="opacity-40">·</span>
-            <span>Autonomous Application Platform</span>
+            <span>Private & Verified Career Workspace</span>
           </div>
 
-          <div className="flex items-center gap-3 tabular-nums">
+          <div className="flex items-center gap-3">
             <span>Strict provenance</span>
             <span aria-hidden="true" className="opacity-40">·</span>
-            <span>15-point gate</span>
+            <span>Protected submission</span>
             <span aria-hidden="true" className="opacity-40">·</span>
-            <span>Zero synthetic metrics</span>
+            <button
+              onClick={() => onSelectTab('diagnostics')}
+              className="hover:text-text transition-colors text-text-3 underline-offset-2 hover:underline cursor-pointer"
+            >
+              Diagnostics
+            </button>
           </div>
         </div>
       </footer>

@@ -113,7 +113,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       {
         id: 'nav-diagnostics',
         label: 'System Diagnostics',
-        hint: 'Engine health, adapter state, and mock portal oracle',
+        hint: 'Engine telemetry, system health, and adapter status',
         icon: Activity,
         category: 'Navigation',
         run: () => onNavigate('diagnostics'),

@@ -22,7 +22,7 @@ function getStoredMode(): ThemeMode {
   } catch {
     // LocalStorage inaccessible
   }
-  return 'system'
+  return 'dark'
 }
 
 function resolveSystem(): ResolvedTheme {

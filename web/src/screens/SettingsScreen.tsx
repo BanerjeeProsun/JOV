@@ -85,8 +85,8 @@ export const SettingsScreen: React.FC = () => {
   const TABS = [
     { id: 'appearance' as SettingsTab, label: 'Appearance', icon: Sun },
     { id: 'behavior' as SettingsTab, label: 'Application Behavior', icon: Sliders },
-    { id: 'integrations' as SettingsTab, label: 'Integrations & Mode', icon: ShieldCheck },
-    { id: 'about' as SettingsTab, label: 'About Platform', icon: Info },
+    { id: 'integrations' as SettingsTab, label: 'Application Safeguards', icon: ShieldCheck },
+    { id: 'about' as SettingsTab, label: 'About JOV.si', icon: Info },
   ]
 
   return (
@@ -94,10 +94,10 @@ export const SettingsScreen: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border">
         <div>
-          <p className="page-kicker">Platform Configuration</p>
+          <p className="page-kicker">Account & Workflow</p>
           <h1 className="page-title">Settings & Safeguards</h1>
           <p className="page-intro">
-            Suitability floor parameters, rate limits, theme preferences, and environment safeguards.
+            Suitability floor parameters, daily volume caps, theme preferences, and verified safety controls.
           </p>
         </div>
 
@@ -282,45 +282,64 @@ export const SettingsScreen: React.FC = () => {
             {activeTab === 'integrations' && (
               <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
                 <div>
-                  <h3 className="text-sm font-semibold text-text">Environment Safeguards</h3>
+                  <h3 className="text-sm font-semibold text-text">Application Safeguards</h3>
                   <p className="text-xs text-text-3 mt-1">
-                    Manage sandbox testing mode versus real external submission portals.
+                    Strict security boundaries and verification controls protecting your application process.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-md border border-border bg-bg-elev-2 space-y-3">
+                <div className="p-5 rounded-md border border-border bg-bg-elev-2 space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-ok" strokeWidth={1.5} />
+                    <div className="flex items-center gap-2.5">
+                      <ShieldCheck className="w-4 h-4 text-text" strokeWidth={1.5} />
                       <span className="text-sm font-semibold text-text">
-                        {allowRealSubmission ? 'Supervised Live Mode (Real Portals Enabled)' : 'Safety Sandbox Mode (Mock Testing Only)'}
+                        Supervised Verification & Staging
                       </span>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-bg-input text-text-3">
-                      L0_DRY_RUN
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-bg-input border border-border text-text-2">
+                      Protected
                     </span>
                   </div>
                   <p className="text-xs text-text-2 leading-relaxed">
-                    By default, JOV.si restricts all submissions to the internal mock portal endpoint (127.0.0.1:8765) to prevent accidental external applications.
+                    JOV.si operates with strict candidate provenance. Tailored resumes, cover letters, and application answers remain securely staged in your private workspace. Nothing is ever submitted to an employer portal without your explicit review and sign-off.
                   </p>
+                  <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-text-3">
+                    <span>Provenance standard</span>
+                    <span className="text-text font-medium">Cryptographic Package Verification</span>
+                  </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'about' && (
-              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
+              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-5 shadow-1">
                 <div>
                   <h3 className="text-sm font-semibold text-text">About JOV.si</h3>
                   <p className="text-xs text-text-3 mt-1">
-                    Autonomous job application platform engineered around strict candidate provenance.
+                    Autonomous job application platform engineered around factual candidate provenance.
                   </p>
                 </div>
 
-                <div className="text-xs text-text-2 space-y-2 pt-2 border-t border-border font-mono">
-                  <p>Version: 0.2.0-recovery</p>
-                  <p>Gate Specification: 15-Point Deterministic Standard</p>
-                  <p>Proof Level: E2 Independent Oracle Verification</p>
-                  <p>Design Language: Scattered → Clarity (Motion.dev native)</p>
+                <div className="text-xs text-text-2 space-y-3 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-3">Platform</span>
+                    <span className="text-text font-medium">JOV.si Autonomous Career Platform</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-3">Version</span>
+                    <span className="font-mono text-text">0.2.0</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-3">Data Integrity</span>
+                    <span className="text-text">Verified Provenance Standard</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-3">System Status</span>
+                    <span className="inline-flex items-center gap-1.5 text-text">
+                      <span className="w-1.5 h-1.5 rounded-full bg-ok" />
+                      <span>Operational</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

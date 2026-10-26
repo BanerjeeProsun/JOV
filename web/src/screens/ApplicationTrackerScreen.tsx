@@ -371,8 +371,8 @@ export const ApplicationTrackerScreen: React.FC = () => {
                   </div>
                   <p className="text-xs text-text-2 leading-relaxed">
                     {(selectedAppDetail as any).evidence_level === 'E2' || (selectedAppDetail as any).state === 'APPLIED_CONFIRMED'
-                      ? 'Level E2: Independent portal polling confirmed receipt. The job portal has validated the submission ID.'
-                      : 'Level E1: Automated portal submission completed. Awaiting independent oracle audit verification.'}
+                      ? 'Verified Confirmation: Independent portal polling confirmed receipt. The career portal has validated the submission ID.'
+                      : 'Submitted: Automated portal submission completed. Awaiting confirmation receipt.'}
                   </p>
                 </div>
 

@@ -6,10 +6,9 @@ import {
   History,
   UserCheck,
   Settings,
-  Activity,
   Moon,
   Sun,
-  Command,
+  Search,
 } from 'lucide-react'
 import { motion, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
 import { JLogo } from '../brand/JLogo'
@@ -39,7 +38,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'tracker', label: 'Tracker', icon: History },
   { id: 'profile', label: 'Profile', icon: UserCheck },
   { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
 ]
 
 export const FloatingNav: React.FC<FloatingNavProps> = ({
@@ -176,10 +174,10 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
               <button
                 onClick={onOpenCommand}
                 aria-label="Open command palette (Ctrl+K or Cmd+K)"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-text-3 hover:text-text hover:bg-selected transition-colors text-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-text-3 hover:text-text hover:bg-selected transition-colors text-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus group"
               >
-                <Command className="w-3.5 h-3.5" strokeWidth={1.5} />
-                <kbd className="hidden md:inline font-mono text-[10px] bg-bg-input px-1.5 py-0.5 rounded border border-border">
+                <Search className="w-3.5 h-3.5 text-text-3 group-hover:text-text transition-colors" strokeWidth={1.5} />
+                <kbd className="hidden md:inline font-mono text-[10px] bg-bg-input px-1.5 py-0.5 rounded border border-border text-text-2 group-hover:text-text transition-colors">
                   ⌘K
                 </kbd>
               </button>
