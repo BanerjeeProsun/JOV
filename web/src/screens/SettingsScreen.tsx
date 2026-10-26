@@ -110,9 +110,9 @@ export const SettingsScreen: React.FC = () => {
       </div>
 
       {feedback && (
-        <div className="p-4 rounded-card border border-ok/20 bg-ok-subtle text-ok text-xs flex items-center justify-between shadow-1">
+        <div className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-text-2 shrink-0" />
             <span>{feedback}</span>
           </div>
           <button onClick={() => setFeedback(null)} className="p-1 hover:opacity-70">
@@ -122,7 +122,7 @@ export const SettingsScreen: React.FC = () => {
       )}
 
       {error && (
-        <div className="p-4 rounded-card border border-err/20 bg-err-subtle text-err text-xs flex items-center justify-between">
+        <div className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="p-1 hover:opacity-70">
             ×
@@ -141,14 +141,14 @@ export const SettingsScreen: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-card text-left transition-colors ${
+                className={`relative w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-colors ${
                   active ? 'text-text font-semibold' : 'text-text-2 hover:text-text hover:bg-selected'
                 }`}
               >
                 {active && (
                   <motion.span
                     layoutId="settings-tab-pill"
-                    className="absolute inset-0 rounded-card bg-selected border border-border"
+                    className="absolute inset-0 rounded-xl bg-selected border border-border/80"
                     transition={spring.layout}
                   />
                 )}
@@ -163,7 +163,7 @@ export const SettingsScreen: React.FC = () => {
         <div className="lg:col-span-8">
           <form onSubmit={handleSave} className="space-y-6">
             {activeTab === 'appearance' && (
-              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+              <div className="border-t border-border/60 pt-6 space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-text">Visual Theme</h3>
                   <p className="text-xs text-text-3 mt-1">
@@ -172,7 +172,7 @@ export const SettingsScreen: React.FC = () => {
                 </div>
 
                 {/* 3-Segment Theme Selector with layoutId sliding indicator */}
-                <div className="inline-flex items-center p-1.5 rounded-full bg-bg-elev-2 border border-border">
+                <div className="inline-flex items-center p-1.5 rounded-full bg-bg-elev-1/60 border border-border/80">
                   {[
                     { id: 'light' as ThemeMode, label: 'Light', icon: Sun },
                     { id: 'dark' as ThemeMode, label: 'Dark', icon: Moon },
@@ -206,7 +206,7 @@ export const SettingsScreen: React.FC = () => {
             )}
 
             {activeTab === 'behavior' && (
-              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+              <div className="border-t border-border/60 pt-6 space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-text">Matching & Quotas</h3>
                   <p className="text-xs text-text-3 mt-1">
@@ -280,7 +280,7 @@ export const SettingsScreen: React.FC = () => {
             )}
 
             {activeTab === 'integrations' && (
-              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+              <div className="border-t border-border/60 pt-6 space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-text">Application Safeguards</h3>
                   <p className="text-xs text-text-3 mt-1">
@@ -288,7 +288,7 @@ export const SettingsScreen: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="p-5 rounded-md border border-border bg-bg-elev-2 space-y-4">
+                <div className="p-5 rounded-xl border border-border/60 bg-bg-elev-1/30 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <ShieldCheck className="w-4 h-4 text-text" strokeWidth={1.5} />
@@ -296,7 +296,7 @@ export const SettingsScreen: React.FC = () => {
                         Supervised Verification & Staging
                       </span>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-bg-input border border-border text-text-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono border border-border/60 text-text-2">
                       Protected
                     </span>
                   </div>
@@ -312,7 +312,7 @@ export const SettingsScreen: React.FC = () => {
             )}
 
             {activeTab === 'about' && (
-              <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-5 shadow-1">
+              <div className="border-t border-border/60 pt-6 space-y-5">
                 <div>
                   <h3 className="text-sm font-semibold text-text">About JOV.si</h3>
                   <p className="text-xs text-text-3 mt-1">
@@ -335,9 +335,8 @@ export const SettingsScreen: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-text-3">System Status</span>
-                    <span className="inline-flex items-center gap-1.5 text-text">
-                      <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-                      <span>Operational</span>
+                    <span className="font-mono text-[11px] text-text-2 border border-border/60 px-1.5 py-0.5 rounded">
+                      OPERATIONAL
                     </span>
                   </div>
                 </div>

@@ -175,7 +175,7 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98 }}
         transition={spring.smooth}
-        className="rounded-card border border-border bg-bg-elev-1 p-6 shadow-1 hover:border-border-strong transition-colors"
+        className="py-5 hover:bg-bg-elev-1/30 px-3 -mx-3 transition-colors"
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2.5 min-w-0">
@@ -212,7 +212,7 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
               {(app as any).score !== undefined && (app as any).score !== null && (
                 <>
                   <span>·</span>
-                  <span className="text-ok font-medium">
+                  <span className="text-text-3 font-medium">
                     Suitability: {(app as any).score}/100
                   </span>
                 </>
@@ -311,10 +311,10 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
         <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-card border border-border bg-bg-elev-1 text-xs text-text flex items-center justify-between shadow-1"
+          className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1"
         >
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-text-2 shrink-0" />
             <span className="font-medium">{feedback}</span>
           </div>
           <button
@@ -363,7 +363,7 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="h-28 rounded-card bg-bg-elev-1 border border-border relative overflow-hidden"
+              className="h-28 rounded-xl bg-bg-elev-1/40 border border-border/60 relative overflow-hidden"
             >
               <div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent"
@@ -373,7 +373,7 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
           ))}
         </div>
       ) : filteredApps.length === 0 ? (
-        <div className="rounded-card border border-border bg-bg-elev-1 p-16 text-center text-text-3">
+        <div className="border border-border/60 rounded-xl bg-bg-elev-1/20 py-16 text-center text-text-3">
           <Layers className="w-10 h-10 mx-auto mb-3 opacity-40" strokeWidth={1.5} />
           <p className="text-sm font-medium text-text">Queue is currently clear</p>
           <p className="text-xs text-text-3 mt-1">
@@ -382,17 +382,16 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
         </div>
       ) : (
         <LayoutGroup>
-          <div className="space-y-8">
+          <div className="space-y-10">
             {/* Needs Action Group */}
             {needsAction.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <span className="w-2 h-2 rounded-full bg-warn" />
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2">
+              <div className="space-y-2">
+                <div className="px-1 border-b border-border/40 pb-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3">
                     Needs Your Action ({needsAction.length})
                   </h2>
                 </div>
-                <div className="space-y-3">
+                <div className="divide-y divide-border/40">
                   {needsAction.map(renderAppCard)}
                 </div>
               </div>
@@ -400,14 +399,13 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
 
             {/* In Progress Group */}
             {inProgress.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <span className="w-2 h-2 rounded-full bg-info" />
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2">
+              <div className="space-y-2">
+                <div className="px-1 border-b border-border/40 pb-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3">
                     In Progress ({inProgress.length})
                   </h2>
                 </div>
-                <div className="space-y-3">
+                <div className="divide-y divide-border/40">
                   {inProgress.map(renderAppCard)}
                 </div>
               </div>
@@ -415,14 +413,13 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
 
             {/* Waiting / Completed Group */}
             {waiting.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <span className="w-2 h-2 rounded-full bg-ok" />
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2">
+              <div className="space-y-2">
+                <div className="px-1 border-b border-border/40 pb-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3">
                     Completed & Waiting ({waiting.length})
                   </h2>
                 </div>
-                <div className="space-y-3">
+                <div className="divide-y divide-border/40">
                   {waiting.map(renderAppCard)}
                 </div>
               </div>

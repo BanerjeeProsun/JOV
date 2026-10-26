@@ -92,7 +92,7 @@ export const ResumeImportWorkflow: React.FC<ResumeImportWorkflowProps> = ({
       : 3
 
   return (
-    <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+    <div className="border-b border-border/60 pb-8 mb-8 space-y-6">
       {/* Segmented Step Indicator with layoutId highlight */}
       <div className="flex items-center justify-between gap-2 border-b border-border pb-4">
         {STEPS.map((s, idx) => {
@@ -103,7 +103,7 @@ export const ResumeImportWorkflow: React.FC<ResumeImportWorkflowProps> = ({
             <div key={s.id} className="relative flex-1 text-center">
               <div
                 className={`py-1 text-xs font-mono transition-colors ${
-                  isCurrent ? 'text-text font-semibold' : isDone ? 'text-ok' : 'text-text-3'
+                  isCurrent ? 'text-text font-semibold' : isDone ? 'text-text-2' : 'text-text-3'
                 }`}
               >
                 {isDone ? `✓ ${s.label.split('. ')[1]}` : s.label}
@@ -143,9 +143,9 @@ export const ResumeImportWorkflow: React.FC<ResumeImportWorkflowProps> = ({
               handleSelectFile(e.dataTransfer.files?.[0])
             }}
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-border rounded-card p-10 text-center cursor-pointer hover:border-border-strong transition-colors"
+            className="border border-border/70 hover:border-text-3 rounded-xl p-8 text-center cursor-pointer bg-bg-elev-1/20 hover:bg-bg-elev-1/50 transition-colors"
           >
-            <Upload className="w-8 h-8 text-text-3 mx-auto mb-3" strokeWidth={1.5} />
+            <Upload className="w-6 h-6 text-text-3 mx-auto mb-2.5" strokeWidth={1.5} />
             <h4 className="text-sm font-semibold text-text">
               {hasExistingResume ? 'Replace Master Resume' : 'Import Master Resume'}
             </h4>
@@ -161,7 +161,7 @@ export const ResumeImportWorkflow: React.FC<ResumeImportWorkflowProps> = ({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="p-6 rounded-card border border-border bg-bg-elev-2 space-y-4"
+            className="p-6 border border-border/70 rounded-xl bg-bg-elev-1/30 space-y-4"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -192,7 +192,7 @@ export const ResumeImportWorkflow: React.FC<ResumeImportWorkflowProps> = ({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="p-10 rounded-card border border-border bg-bg-elev-2 text-center space-y-4"
+            className="p-10 border border-border/70 rounded-xl bg-bg-elev-1/30 text-center space-y-4"
           >
             <div className="w-10 h-10 rounded-full bg-bg-elev-1 border border-border flex items-center justify-center mx-auto text-text animate-pulse">
               <Clock className="w-5 h-5" />
@@ -223,13 +223,13 @@ export const ResumeImportWorkflow: React.FC<ResumeImportWorkflowProps> = ({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="p-6 rounded-card border border-ok/20 bg-ok-subtle text-ok space-y-3"
+            className="p-6 border border-border/70 rounded-xl bg-bg-elev-1/30 text-text space-y-3"
           >
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 text-text-2 shrink-0" />
               <h4 className="text-sm font-semibold">Extraction Complete</h4>
             </div>
-            <p className="text-xs leading-relaxed">
+            <p className="text-xs text-text-2 leading-relaxed">
               Extracted {extractedCount ?? 'all'} verified facts into the candidate graph. You can inspect claims in the sections below.
             </p>
             <div className="pt-2">
@@ -246,13 +246,13 @@ export const ResumeImportWorkflow: React.FC<ResumeImportWorkflowProps> = ({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="p-6 rounded-card border border-err/20 bg-err-subtle text-err space-y-3"
+            className="p-6 border border-border/70 rounded-xl bg-bg-elev-1/30 text-text space-y-3"
           >
             <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-5 h-5 shrink-0" />
+              <AlertCircle className="w-5 h-5 text-text-3 shrink-0" />
               <h4 className="text-sm font-semibold">Processing Failed</h4>
             </div>
-            <p className="text-xs leading-relaxed">{errorText}</p>
+            <p className="text-xs text-text-2 leading-relaxed">{errorText}</p>
             <div className="pt-2">
               <Button variant="secondary" size="sm" onClick={handleReset}>
                 <RotateCcw className="w-3.5 h-3.5" />

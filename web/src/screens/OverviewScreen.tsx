@@ -3,7 +3,6 @@ import { ArrowRight, FileText, RefreshCw, Search, ShieldCheck, CheckCircle2, Ale
 import { Button } from '../components/ui/Button'
 import { SplitText } from '../components/motion/SplitText'
 import { Magnetic } from '../components/motion/Magnetic'
-import { SpotlightSurface } from '../components/motion/SpotlightSurface'
 import { HeroVideo } from '../components/media/HeroVideo'
 import { api } from '../api/client'
 import type { Candidate, MasterResumeStatus, MetricsSummary } from '../types'
@@ -121,8 +120,8 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
 
       {/* Error Notice */}
       {error && (
-        <div className="rounded-card border border-err/20 bg-err-subtle p-5 text-[14px] text-err flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <div className="border border-border/80 bg-bg-elev-1/60 p-4 rounded-xl text-[13px] text-text-2 flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 shrink-0 text-text-3" />
           <span>Unable to synchronize workspace data: {error}</span>
         </div>
       )}
@@ -148,58 +147,55 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
           </Button>
         </div>
 
-        {/* Asymmetrical Metric & Status Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
-          {/* Confirmed Metric Card — Hero Scale */}
-          <div className="md:col-span-6 lg:col-span-5">
-            <SpotlightSurface className="h-full rounded-card border border-border bg-bg-elev-1 p-8 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-wider text-text-3 font-medium">
-                    Verified Outcomes
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-ok-subtle text-ok border border-ok/20">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Independently confirmed
-                  </span>
-                </div>
-                <p className="mt-8 text-xs text-text-3 uppercase tracking-wider">
-                  Confirmed applications
-                </p>
-                <div className="mt-2 flex items-baseline gap-3">
-                  <span
-                    data-testid="metric-confirmed-value"
-                    className="text-6xl lg:text-7xl font-semibold tracking-tighter text-text tabular-nums"
-                  >
-                    {confirmedCount}
-                  </span>
-                  <span className="text-sm text-text-3">portal records</span>
-                </div>
-              </div>
+        {/* Unboxed Architectural Layout: Metric Showcase + Row Pipeline */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+          {/* Left: Confirmed Metric Showcase — Open Typographic Presentation */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="flex items-center justify-between border-b border-border/40 pb-3">
+              <span className="text-xs uppercase tracking-wider text-text-3 font-medium">
+                Verified Outcomes
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono text-text-3 border border-border/60">
+                <CheckCircle2 className="w-3 h-3 opacity-70" />
+                Independently confirmed
+              </span>
+            </div>
 
-              <div className="pt-8 border-t border-border mt-8">
-                <p className="text-xs text-text-3 leading-relaxed">
-                  Only submissions verified by independent portal evidence. Never synthetic.
-                </p>
+            <div className="pt-2">
+              <p className="text-xs text-text-3 uppercase tracking-wider font-mono">
+                Confirmed applications
+              </p>
+              <div className="mt-2 flex items-baseline gap-3">
+                <span
+                  data-testid="metric-confirmed-value"
+                  className="text-6xl lg:text-7xl font-semibold tracking-tighter text-text tabular-nums"
+                >
+                  {confirmedCount}
+                </span>
+                <span className="text-sm text-text-3 font-mono">portal records</span>
               </div>
-            </SpotlightSurface>
+            </div>
+
+            <p className="text-xs text-text-3 leading-relaxed pt-4 border-t border-border/40">
+              Only submissions verified by independent portal evidence. Never synthetic.
+            </p>
           </div>
 
-          {/* Right Rail: Real Active Items and Pipeline Stages */}
-          <div className="md:col-span-6 lg:col-span-7 flex flex-col gap-4">
+          {/* Right Rail: Sleek Row-Based Pipeline with Hairline Dividers */}
+          <div className="lg:col-span-7 divide-y divide-border/60 border-y border-border/60">
             {/* Needs Action / Review Row */}
-            <SpotlightSurface className="rounded-card border border-border bg-bg-elev-1 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group transition-colors">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-text-2" strokeWidth={1.5} />
+                  <Clock className="w-4 h-4 text-text-3" strokeWidth={1.5} />
                   <span className="text-sm font-semibold text-text">Awaiting Review</span>
                 </div>
-                <p className="text-xs text-text-2">
+                <p className="text-xs text-text-3">
                   Applications verified and ready for your sign-off.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-semibold text-text tabular-nums">
+              <div className="flex items-center gap-4 shrink-0">
+                <span className="text-2xl font-semibold text-text tabular-nums font-mono">
                   {readyForReviewCount}
                 </span>
                 <Button
@@ -210,21 +206,21 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
                   Review
                 </Button>
               </div>
-            </SpotlightSurface>
+            </div>
 
             {/* Opportunities Row */}
-            <SpotlightSurface className="rounded-card border border-border bg-bg-elev-1 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group transition-colors">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Search className="w-4 h-4 text-info" />
+                  <Search className="w-4 h-4 text-text-3" strokeWidth={1.5} />
                   <span className="text-sm font-semibold text-text">Suitable Opportunities</span>
                 </div>
-                <p className="text-xs text-text-2">
+                <p className="text-xs text-text-3">
                   Discovered postings that meet your current suitability floor.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-semibold text-text tabular-nums">
+              <div className="flex items-center gap-4 shrink-0">
+                <span className="text-2xl font-semibold text-text tabular-nums font-mono">
                   {shortlistedCount}
                 </span>
                 <Button
@@ -235,21 +231,21 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
                   Explore
                 </Button>
               </div>
-            </SpotlightSurface>
+            </div>
 
             {/* Pending Audit Confirmation */}
-            <SpotlightSurface className="rounded-card border border-border bg-bg-elev-1 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group transition-colors">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-text-3" />
+                  <ShieldCheck className="w-4 h-4 text-text-3" strokeWidth={1.5} />
                   <span className="text-sm font-semibold text-text">Sent, Pending Confirmation</span>
                 </div>
-                <p className="text-xs text-text-2">
+                <p className="text-xs text-text-3">
                   Transmitted packages awaiting confirmation webhook or portal polling.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-semibold text-text tabular-nums">
+              <div className="flex items-center gap-4 shrink-0">
+                <span className="text-2xl font-semibold text-text tabular-nums font-mono">
                   {uncertainCount}
                 </span>
                 <Button
@@ -260,22 +256,20 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
                   Tracker
                 </Button>
               </div>
-            </SpotlightSurface>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Safety & Provenance Integrity Notice */}
-      <section className="rounded-card border border-border bg-bg-elev-1 p-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-        <div className="flex items-start gap-4 max-w-2xl">
-          <div className="p-2.5 rounded-full bg-bg-elev-2 text-text border border-border shrink-0 mt-0.5">
-            <ShieldCheck className="w-5 h-5" strokeWidth={1.5} />
-          </div>
+      {/* Safety & Provenance Integrity Notice — Unboxed Footer Strip */}
+      <section className="pt-8 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 text-text-3">
+        <div className="flex items-start gap-3 max-w-2xl">
+          <ShieldCheck className="w-4 h-4 text-text-2 shrink-0 mt-0.5" strokeWidth={1.5} />
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-text">
+            <h3 className="text-sm font-medium text-text">
               Engineered with strict candidate provenance
             </h3>
-            <p className="text-xs text-text-2 leading-relaxed">
+            <p className="text-xs text-text-3 leading-relaxed">
               Every field in every tailored resume maps to an active candidate fact. No hallucinated experience, no fabricated confirmation. Submissions are gated until explicitly approved.
             </p>
           </div>
@@ -283,7 +277,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
 
         <button
           onClick={() => onNavigate('tracker')}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-text hover:text-text-2 transition-colors shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-text-2 hover:text-text transition-colors shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded"
         >
           <span>View event audit trail</span>
           <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />

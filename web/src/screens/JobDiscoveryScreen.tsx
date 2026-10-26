@@ -196,10 +196,10 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
-          className="p-4 rounded-card border border-border bg-bg-elev-1 text-sm flex items-center justify-between shadow-1 text-text"
+          className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1"
         >
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-text-2 shrink-0" />
             <span>{actionMessage}</span>
           </div>
           <button
@@ -212,7 +212,7 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       )}
 
       {/* Search Toolbar */}
-      <div className="flex items-center gap-3 bg-bg-elev-1 p-2 rounded-full border border-border shadow-1">
+      <div className="flex items-center gap-3 bg-bg-elev-1/60 p-2 rounded-full border border-border/80 shadow-1 backdrop-blur-sm">
         <div className="flex-1 flex items-center gap-2.5 px-3">
           <Search className="w-4 h-4 text-text-3 shrink-0" strokeWidth={1.5} />
           <input
@@ -239,14 +239,14 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       <LayoutGroup>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Dense Job List */}
-          <div className="lg:col-span-5 space-y-2.5">
+          <div className="lg:col-span-5 space-y-1">
             {loading ? (
               // Slow pearl shimmer skeleton loader
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((n) => (
                   <div
                     key={n}
-                    className="h-24 rounded-card bg-bg-elev-1 border border-border relative overflow-hidden"
+                    className="h-24 rounded-xl bg-bg-elev-1/40 border border-border/60 relative overflow-hidden"
                   >
                     <div
                       className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent"
@@ -256,7 +256,7 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
                 ))}
               </div>
             ) : filteredJobs.length === 0 ? (
-              <div className="rounded-card border border-border bg-bg-elev-1 p-12 text-center text-text-3">
+              <div className="border border-border/60 rounded-xl bg-bg-elev-1/20 p-12 text-center text-text-3">
                 <Briefcase className="w-8 h-8 mx-auto mb-3 opacity-40" strokeWidth={1.5} />
                 <p className="text-sm font-medium text-text">No opportunities found</p>
                 <p className="text-xs mt-1 text-text-3">
@@ -275,17 +275,17 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
                       key={job.id}
                       layoutId={`job-${job.id}`}
                       onClick={() => setSelectedJobId(job.id)}
-                      className={`relative p-5 rounded-card border transition-colors cursor-pointer select-none ${
+                      className={`relative p-5 rounded-xl transition-all cursor-pointer select-none border-b border-border/60 ${
                         isSelected
-                          ? 'bg-selected border-border-strong shadow-1'
-                          : 'bg-bg-elev-1 border-border hover:bg-bg-elev-2 hover:border-border-strong'
+                          ? 'bg-selected border-b-border-strong shadow-1'
+                          : 'hover:bg-bg-elev-1/50 border-b-border/40'
                       }`}
                     >
                       {/* Active pearl border indicator */}
                       {isSelected && (
                         <motion.div
                           layoutId="job-active-indicator"
-                          className="absolute inset-0 rounded-card pointer-events-none border border-pearl-1/40"
+                          className="absolute inset-0 rounded-xl pointer-events-none border border-pearl-1/40"
                           transition={spring.layout}
                         />
                       )}
@@ -344,7 +344,7 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
                 variants={fadeUp}
                 initial="hidden"
                 animate="show"
-                className="rounded-card border border-border bg-bg-elev-1 p-8 shadow-1 space-y-6"
+                className="rounded-2xl border border-border/80 bg-bg-elev-1/30 backdrop-blur-sm p-8 shadow-float space-y-6"
               >
                 {/* Header Info */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-border">
@@ -438,7 +438,7 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
                 )}
               </motion.div>
             ) : (
-              <div className="rounded-card border border-border bg-bg-elev-1 p-12 text-center text-text-3">
+              <div className="rounded-2xl border border-border/60 bg-bg-elev-1/20 p-12 text-center text-text-3 font-mono text-xs">
                 Select a role from the left to view details and start an application.
               </div>
             )}
@@ -456,7 +456,7 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       >
         <form onSubmit={handleImportSubmit} className="space-y-4 mt-2">
           {importError && (
-            <div className="p-3 rounded-md bg-err-subtle text-err text-xs border border-err/20">
+            <div className="p-3 rounded-lg border border-border/80 bg-bg-elev-1/80 text-text-2 text-xs">
               {importError}
             </div>
           )}

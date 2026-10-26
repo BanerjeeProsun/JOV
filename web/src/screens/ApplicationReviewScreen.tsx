@@ -139,7 +139,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
   if (error && !app) {
     return (
       <div className="screen-page py-24 text-center">
-        <div className="p-6 rounded-card border border-err/20 bg-err-subtle text-err text-xs max-w-md mx-auto">
+        <div className="p-6 border border-border/80 bg-bg-elev-1/60 rounded-xl text-xs text-text max-w-md mx-auto">
           {error}
         </div>
       </div>
@@ -200,9 +200,9 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
       {/* Notifications */}
       {feedback && (
-        <div className="p-4 rounded-card border border-ok/20 bg-ok-subtle text-ok text-xs flex items-center justify-between shadow-1">
+        <div className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-text-2 shrink-0" />
             <span>{feedback}</span>
           </div>
           <button onClick={() => setFeedback(null)} className="p-1 hover:opacity-70">
@@ -212,9 +212,9 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
       )}
 
       {error && (
-        <div className="p-4 rounded-card border border-err/20 bg-err-subtle text-err text-xs flex items-center justify-between shadow-1">
+        <div className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1">
           <div className="flex items-center gap-2">
-            <XCircle className="w-4 h-4 shrink-0" />
+            <XCircle className="w-4 h-4 text-text-3 shrink-0" />
             <span>{error}</span>
           </div>
           <button onClick={() => setError(null)} className="p-1 hover:opacity-70">
@@ -223,9 +223,9 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
         </div>
       )}
 
-      {/* Package Header Card */}
-      <div className="rounded-card border border-border bg-bg-elev-1 p-6 shadow-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Package Header Section */}
+      <div className="border-b border-border/60 pb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-text-3">
               Target Role & Organization
@@ -278,8 +278,8 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
       </div>
 
       {/* 15-Point Pre-Submission Validation Gate Report */}
-      <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+      <div className="border-b border-border/60 pb-8 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="w-5 h-5 text-text" strokeWidth={1.5} />
             <div>
@@ -294,13 +294,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
           </div>
 
           {app?.gate_report && (
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-wider border ${
-                gatePassed
-                  ? 'bg-ok-subtle text-ok border-ok/20'
-                  : 'bg-err-subtle text-err border-err/20'
-              }`}
-            >
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-mono border border-border/60 text-text-2 uppercase tracking-wider">
               Gate Outcome: {app.gate_report.outcome}
             </span>
           )}
@@ -308,17 +302,17 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
         {/* Validation Checks Table */}
         {app?.gate_report?.results && (
-          <div className="rounded-md border border-border overflow-hidden">
+          <div className="rounded-xl border border-border/60 overflow-hidden bg-bg-elev-1/20">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-bg-elev-2 border-b border-border text-text-3 font-mono">
+                <tr className="bg-bg-elev-1/40 border-b border-border/60 text-text-3 font-mono">
                   <th className="py-2.5 px-4 font-medium w-16">#</th>
                   <th className="py-2.5 px-4 font-medium">Standard Check</th>
                   <th className="py-2.5 px-4 font-medium w-24">Severity</th>
                   <th className="py-2.5 px-4 font-medium w-24">Result</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border font-mono text-[11px]">
+              <tbody className="divide-y divide-border/40 font-mono text-[11px]">
                 {app.gate_report.results.map((chk) => (
                   <tr key={chk.check_id} className="hover:bg-selected transition-colors">
                     <td className="py-2.5 px-4 text-text-3">{chk.check_id}</td>
@@ -336,7 +330,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
                     <td className="py-2.5 px-4">
                       <span
                         className={`inline-flex items-center gap-1 font-semibold ${
-                          chk.result === 'PASS' ? 'text-ok' : 'text-err'
+                          chk.result === 'PASS' ? 'text-text' : 'text-text-3'
                         }`}
                       >
                         {chk.result === 'PASS' ? '✓ PASS' : '✗ FAIL'}
@@ -351,7 +345,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
       </div>
 
       {/* Document Viewer: Solid reading measure (~70ch) */}
-      <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-6 shadow-1">
+      <div className="space-y-6 pt-2">
         {/* Tabs for Document View */}
         <div className="flex items-center gap-1 border-b border-border pb-3">
           {[
@@ -383,7 +377,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
         {/* Resume Content */}
         {activeTab === 'RESUME' && (
-          <div className="max-w-[70ch] mx-auto p-8 rounded-card border border-border bg-bg-elev-2 text-text font-sans leading-relaxed space-y-6 shadow-1">
+          <div className="max-w-[70ch] mx-auto p-8 rounded-2xl border border-border/60 bg-bg-elev-1/30 text-text font-sans leading-relaxed space-y-6 shadow-1">
             <div className="border-b border-border pb-4">
               <h2 className="text-2xl font-semibold tracking-tight text-text">
                 {candidateDisplayName}
@@ -406,7 +400,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
         {/* Cover Letter Content */}
         {activeTab === 'COVER_LETTER' && (
-          <div className="max-w-[70ch] mx-auto p-8 rounded-card border border-border bg-bg-elev-2 text-text font-sans leading-relaxed space-y-4 shadow-1">
+          <div className="max-w-[70ch] mx-auto p-8 rounded-2xl border border-border/60 bg-bg-elev-1/30 text-text font-sans leading-relaxed space-y-4 shadow-1">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="text-sm font-semibold text-text">Cover Letter Draft</h3>
               <Button
@@ -448,9 +442,9 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
         {/* Verified Fields Content */}
         {activeTab === 'FIELDS' && (
-          <div className="max-w-[70ch] mx-auto p-6 rounded-card border border-border bg-bg-elev-2 space-y-3 text-xs font-mono">
+          <div className="max-w-[70ch] mx-auto p-6 rounded-2xl border border-border/60 bg-bg-elev-1/30 space-y-3 text-xs font-mono">
             <h4 className="text-xs uppercase font-semibold text-text-3">Form Field Responses</h4>
-            <div className="p-4 rounded bg-bg-input border border-border text-text space-y-2">
+            <div className="p-4 rounded-xl bg-bg-input border border-border/60 text-text space-y-2">
               <p>Full Name: {candidateDisplayName}</p>
               <p>Portal Destination: {companyName} Verified Submission Portal</p>
               <p>Status: Pre-submission verification passed</p>
@@ -464,7 +458,7 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
         <div className="glass rounded-full p-2.5 border border-glass-border shadow-float flex items-center justify-between gap-4 pointer-events-auto">
           {/* Calm verification status */}
           <div className="flex items-center gap-2 pl-3 min-w-0">
-            <span className="w-2 h-2 rounded-full bg-ok shrink-0" />
+            <ShieldCheck className="w-4 h-4 text-text-2 shrink-0" />
             <span className="text-[12px] text-text-2 truncate">
               {isApproved ? 'Approved · Ready for final submission' : 'Verified · Explicit approval required'}
             </span>

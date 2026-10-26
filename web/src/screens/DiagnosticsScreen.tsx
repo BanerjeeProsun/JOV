@@ -108,9 +108,9 @@ export const DiagnosticsScreen: React.FC = () => {
       </div>
 
       {feedback && (
-        <div className="p-4 rounded-card border border-border bg-bg-elev-1 text-xs text-text flex items-center justify-between shadow-1">
+        <div className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-text-2 shrink-0" />
             <span>{feedback}</span>
           </div>
           <button onClick={() => setFeedback(null)} className="text-text-3 hover:text-text">
@@ -119,51 +119,42 @@ export const DiagnosticsScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Telemetry Status Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="p-6 rounded-card border border-border bg-bg-elev-1 shadow-1 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-3 uppercase tracking-wider">FastAPI Core</span>
-            <span className="w-2 h-2 rounded-full bg-ok" />
-          </div>
-          <div className="text-xl font-semibold text-text">
+      {/* Telemetry Status Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 border-b border-border/60 pb-8">
+        <div className="space-y-1">
+          <span className="text-[11px] font-mono text-text-3 uppercase tracking-wider">FastAPI Core</span>
+          <div className="text-3xl font-semibold tracking-tight text-text">
             {health?.status || 'HEALTHY'}
           </div>
-          <p className="text-xs text-text-3 font-mono">
+          <p className="text-xs text-text-3 font-mono pt-1">
             Product: {health?.product || 'JOV.si Engine'}
           </p>
         </div>
 
-        <div className="p-6 rounded-card border border-border bg-bg-elev-1 shadow-1 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-3 uppercase tracking-wider">Database Status</span>
-            <span className="w-2 h-2 rounded-full bg-ok" />
-          </div>
-          <div className="text-xl font-semibold text-text">
+        <div className="space-y-1 sm:border-l sm:border-border/60 sm:pl-6">
+          <span className="text-[11px] font-mono text-text-3 uppercase tracking-wider">Database Status</span>
+          <div className="text-3xl font-semibold tracking-tight text-text">
             {diag?.database ? 'CONNECTED' : 'STANDBY'}
           </div>
-          <p className="text-xs text-text-3 font-mono truncate">
+          <p className="text-xs text-text-3 font-mono truncate pt-1">
             {diag?.database || 'SQLite (WAL)'}
           </p>
         </div>
 
-        <div className="p-6 rounded-card border border-border bg-bg-elev-1 shadow-1 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-3 uppercase tracking-wider">Autonomy Guard</span>
-            <span className="w-2 h-2 rounded-full bg-info" />
-          </div>
-          <div className="text-xl font-semibold text-text">
+        <div className="space-y-1 sm:border-l sm:border-border/60 sm:pl-6">
+          <span className="text-[11px] font-mono text-text-3 uppercase tracking-wider">Autonomy Guard</span>
+          <div className="text-3xl font-semibold tracking-tight text-text">
             {health?.autonomy_level || 'L0_DRY_RUN'}
           </div>
-          <p className="text-xs text-text-3 font-mono">
+          <p className="text-xs text-text-3 font-mono pt-1">
             External submissions blocked
           </p>
         </div>
       </div>
 
       {/* Mock Portal Ground-Truth Oracle Records Section */}
-      <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-5 shadow-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+      <div className="border-b border-border/60 pb-8 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
           <div>
             <h2 className="text-base font-semibold text-text">
               Mock Portal Ground-Truth Oracle Records
@@ -179,18 +170,18 @@ export const DiagnosticsScreen: React.FC = () => {
         </div>
 
         {oracleError && (
-          <div className="p-3 rounded-md bg-warn-subtle border border-warn/20 text-warn text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="p-3 rounded-lg border border-border/80 bg-bg-elev-1/80 text-text-2 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-text-3" />
             <span>{oracleError}</span>
           </div>
         )}
 
         {oracleRecords.length === 0 ? (
-          <div className="p-8 rounded-md bg-bg-input border border-border text-center text-xs text-text-3 font-mono">
+          <div className="p-8 rounded-xl bg-bg-elev-1/20 border border-border/60 text-center text-xs text-text-3 font-mono">
             Zero submissions recorded in mock portal. Submit a package to see verification records.
           </div>
         ) : (
-          <div className="space-y-3 font-mono text-xs">
+          <div className="divide-y divide-border/50 font-mono text-xs">
             {oracleRecords.map((rec: any, idx: number) => {
               const candName = rec.candidate_name || rec.payload?.name || rec.name || 'Ada Lovelace'
               const roleTitle = rec.role_title || rec.payload?.role || 'Senior Software Engineer'
@@ -199,11 +190,11 @@ export const DiagnosticsScreen: React.FC = () => {
               return (
                 <div
                   key={idx}
-                  className="p-4 rounded-md border border-border bg-bg-input space-y-2 text-text"
+                  className="py-4 space-y-1.5 text-text hover:bg-bg-elev-1/30 px-3 -mx-3 rounded-lg transition-colors"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-text">{candName}</span>
-                    <span className="text-ok font-mono">{confId}</span>
+                    <span className="font-semibold text-text font-sans">{candName}</span>
+                    <span className="text-text font-mono">{confId}</span>
                   </div>
                   <div className="flex items-center justify-between text-text-3 text-[11px]">
                     <span>Role: {roleTitle}</span>
@@ -218,7 +209,7 @@ export const DiagnosticsScreen: React.FC = () => {
 
       {/* Raw Diagnostic Payload */}
       {diag && (
-        <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-3">
+        <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-text-3">
               Full System Telemetry Payload

@@ -27,28 +27,28 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ state, className = '',
     DISCOVERED: 'Discovered',
   }
 
-  let style = 'bg-bg-elev-2 text-text-2 border-border'
+  let style = 'bg-bg-input text-text-3 border-border/60'
   let Icon = Clock
 
   if (state.includes('FAILED') || state === 'REJECTED') {
-    style = 'bg-err-subtle text-err border-err/20'
+    style = 'bg-transparent text-text-2 border-border-strong'
     Icon = XCircle
   } else if (state.includes('UNCERTAIN') || state === 'PAUSED_AUTH') {
-    style = 'bg-warn-subtle text-warn border-warn/20'
+    style = 'bg-transparent text-text-2 border-border'
     Icon = ShieldAlert
   } else if (state === 'APPLIED_CONFIRMED') {
-    style = 'bg-ok-subtle text-ok border-ok/20'
+    style = 'bg-transparent text-text border-border-strong font-medium'
     Icon = CheckCircle2
   } else if (state.includes('REVIEW') || state.includes('APPROVED')) {
-    style = 'bg-info-subtle text-info border-info/20'
+    style = 'bg-transparent text-text-2 border-border'
     Icon = AlertCircle
   }
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium border ${style} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-mono border ${style} ${className}`}
     >
-      {showIcon && <Icon className="h-3 w-3 shrink-0" strokeWidth={1.5} />}
+      {showIcon && <Icon className="h-3 w-3 shrink-0 opacity-70" strokeWidth={1.5} />}
       <span>{labels[state] || state.replaceAll('_', ' ')}</span>
     </span>
   )

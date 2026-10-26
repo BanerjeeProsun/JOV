@@ -106,9 +106,9 @@ export const ApplicationTrackerScreen: React.FC = () => {
       </div>
 
       {resolveMessage && (
-        <div className="p-4 rounded-card border border-border bg-bg-elev-1 text-xs text-text flex items-center justify-between shadow-1">
+        <div className="p-4 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-text-2 shrink-0" />
             <span>{resolveMessage}</span>
           </div>
           <button
@@ -125,7 +125,7 @@ export const ApplicationTrackerScreen: React.FC = () => {
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="h-24 rounded-card bg-bg-elev-1 border border-border relative overflow-hidden"
+              className="h-24 rounded-xl bg-bg-elev-1/40 border border-border/60 relative overflow-hidden"
             >
               <div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent"
@@ -135,7 +135,7 @@ export const ApplicationTrackerScreen: React.FC = () => {
           ))}
         </div>
       ) : applications.length === 0 ? (
-        <div className="rounded-card border border-border bg-bg-elev-1 p-16 text-center text-text-3">
+        <div className="border border-border/60 rounded-xl bg-bg-elev-1/20 py-16 text-center text-text-3">
           <History className="w-10 h-10 mx-auto mb-3 opacity-40" strokeWidth={1.5} />
           <p className="text-sm font-medium text-text">No applications in record</p>
           <p className="text-xs text-text-3 mt-1 max-w-sm mx-auto">
@@ -147,20 +147,19 @@ export const ApplicationTrackerScreen: React.FC = () => {
           {/* Left Column: Applications Timeline */}
           <div className={selectedAppDetail ? 'lg:col-span-7 space-y-6' : 'lg:col-span-12 space-y-6'}>
             {/* Confirmed Submissions Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-ok" />
-                  <span>Confirmed Submissions ({confirmedApps.length})</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-1 border-b border-border/40 pb-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3">
+                  Confirmed Submissions ({confirmedApps.length})
                 </h2>
               </div>
 
               {confirmedApps.length === 0 ? (
-                <div className="p-6 rounded-card border border-border bg-bg-elev-1 text-xs text-text-3 text-center">
+                <div className="py-8 border-b border-border/40 text-xs text-text-3 text-center">
                   No confirmed applications yet.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="divide-y divide-border/40">
                   {confirmedApps.map((app) => {
                     const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
                     const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
@@ -171,11 +170,9 @@ export const ApplicationTrackerScreen: React.FC = () => {
                       <motion.div
                         layout
                         key={app.id}
-                        className={`p-6 rounded-card border transition-all ${
-                          isSelected
-                            ? 'border-text bg-bg-elev-2 ring-1 ring-border-strong'
-                            : 'border-border bg-bg-elev-1 hover:border-border-strong'
-                        } shadow-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
+                        className={`py-5 transition-colors ${
+                          isSelected ? 'bg-bg-elev-1/60' : 'hover:bg-bg-elev-1/30'
+                        } px-3 -mx-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
                       >
                         <div className="space-y-1.5 cursor-pointer" onClick={() => handleInspectDetail(app.id)}>
                           <div className="flex items-center gap-3">
@@ -202,7 +199,7 @@ export const ApplicationTrackerScreen: React.FC = () => {
                             loading={inspectLoading && selectedAppDetail?.id === app.id}
                             onClick={() => handleInspectDetail(app.id)}
                           >
-                            <ShieldCheck className="w-4 h-4 text-ok" />
+                            <ShieldCheck className="w-4 h-4 text-text-3" />
                             <span>Evidence & Audit</span>
                           </Button>
                         </div>
@@ -215,14 +212,13 @@ export const ApplicationTrackerScreen: React.FC = () => {
 
             {/* Pending Submissions / Uncertain */}
             {pendingApps.length > 0 && (
-              <div className="space-y-3 pt-4">
-                <div className="flex items-center justify-between px-1">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-warn" />
-                    <span>Pending Confirmation ({pendingApps.length})</span>
+              <div className="space-y-2 pt-6">
+                <div className="flex items-center justify-between px-1 border-b border-border/40 pb-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3">
+                    Pending Confirmation ({pendingApps.length})
                   </h2>
                 </div>
-                <div className="space-y-3">
+                <div className="divide-y divide-border/40">
                   {pendingApps.map((app) => {
                     const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
                     const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
@@ -233,11 +229,9 @@ export const ApplicationTrackerScreen: React.FC = () => {
                     return (
                       <div
                         key={app.id}
-                        className={`p-6 rounded-card border transition-all ${
-                          isSelected
-                            ? 'border-text bg-bg-elev-2 ring-1 ring-border-strong'
-                            : 'border-border bg-bg-elev-1 hover:border-border-strong'
-                        } shadow-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
+                        className={`py-5 transition-colors ${
+                          isSelected ? 'bg-bg-elev-1/60' : 'hover:bg-bg-elev-1/30'
+                        } px-3 -mx-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
                       >
                         <div className="space-y-1.5 cursor-pointer" onClick={() => handleInspectDetail(app.id)}>
                           <div className="flex items-center gap-3">
@@ -280,11 +274,13 @@ export const ApplicationTrackerScreen: React.FC = () => {
 
             {/* All In-Progress Pipeline Applications */}
             {otherApps.length > 0 && (
-              <div className="space-y-3 pt-4">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3 px-1">
-                  In-Progress Applications ({otherApps.length})
-                </h2>
-                <div className="space-y-3">
+              <div className="space-y-2 pt-6">
+                <div className="px-1 border-b border-border/40 pb-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3">
+                    In-Progress Applications ({otherApps.length})
+                  </h2>
+                </div>
+                <div className="divide-y divide-border/40">
                   {otherApps.map((app) => {
                     const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
                     const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
@@ -294,11 +290,9 @@ export const ApplicationTrackerScreen: React.FC = () => {
                     return (
                       <div
                         key={app.id}
-                        className={`p-5 rounded-card border transition-all ${
-                          isSelected
-                            ? 'border-text bg-bg-elev-2'
-                            : 'border-border bg-bg-elev-1'
-                        } flex items-center justify-between gap-4`}
+                        className={`py-4 border-b border-border/60 transition-colors ${
+                          isSelected ? 'bg-bg-elev-1/60' : 'hover:bg-bg-elev-1/30'
+                        } px-3 -mx-3 rounded-lg flex items-center justify-between gap-4`}
                       >
                         <div className="space-y-1 min-w-0 cursor-pointer" onClick={() => handleInspectDetail(app.id)}>
                           <div className="flex items-center gap-3">
@@ -334,13 +328,13 @@ export const ApplicationTrackerScreen: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 12 }}
                 transition={{ duration: 0.2 }}
-                className="lg:col-span-5 rounded-card border border-border bg-bg-elev-1 shadow-float p-6 space-y-6 lg:sticky lg:top-24"
+                className="lg:col-span-5 rounded-2xl border border-border/80 bg-bg-elev-1/30 shadow-float p-6 space-y-6 lg:sticky lg:top-24 backdrop-blur-sm"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
                   <div>
                     <div className="flex items-center gap-2 text-xs font-mono text-text-3">
-                      <FileCheck className="w-3.5 h-3.5 text-ok" />
+                      <FileCheck className="w-3.5 h-3.5 text-text-3" />
                       <span>EVIDENCE INSPECTOR</span>
                     </div>
                     <h3 className="text-lg font-semibold text-text tracking-tight mt-1">
@@ -360,12 +354,12 @@ export const ApplicationTrackerScreen: React.FC = () => {
                 </div>
 
                 {/* Status & Evidence Level Banner */}
-                <div className="p-4 rounded-card border border-border bg-bg-elev-2 space-y-2">
+                <div className="p-4 rounded-xl border border-border/60 bg-bg-elev-1/30 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-text-3 uppercase tracking-wider font-semibold">
                       Verification Level
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-ok-subtle text-ok border border-ok/20">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-mono border border-border/60 text-text-2 bg-transparent">
                       Level E2
                     </span>
                   </div>
@@ -402,7 +396,7 @@ export const ApplicationTrackerScreen: React.FC = () => {
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
                     Event Audit Trail
                   </h4>
-                  <div className="rounded-card border border-border bg-bg-input p-4 font-mono text-[11px] text-text-2 space-y-2 max-h-60 overflow-y-auto [scrollbar-width:thin]">
+                  <div className="rounded-xl border border-border/60 bg-bg-input/60 p-4 font-mono text-[11px] text-text-2 space-y-2 max-h-60 overflow-y-auto [scrollbar-width:thin]">
                     {((selectedAppDetail as any).events || [
                       { event: 'APPLICATION_CREATED', at: selectedAppDetail.created_at || new Date().toISOString() },
                       { event: 'GATE_EVALUATION_PASS', at: new Date().toISOString() },

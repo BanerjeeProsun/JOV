@@ -140,22 +140,16 @@ export const CandidateProfileScreen: React.FC = () => {
 
       {/* Message Banner */}
       {message && (
-        <div
-          className={`p-4 rounded-card border text-sm flex items-center justify-between ${
-            message.type === 'success'
-              ? 'bg-ok-subtle border-ok/20 text-ok'
-              : 'bg-err-subtle border-err/20 text-err'
-          }`}
-        >
+        <div className="p-4 rounded-xl border border-border/80 bg-bg-elev-1/60 text-xs text-text flex items-center justify-between shadow-1">
           <div className="flex items-center gap-2.5">
             {message.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-text-2 shrink-0" />
             ) : (
-              <X className="w-4 h-4 shrink-0" />
+              <X className="w-4 h-4 text-text-3 shrink-0" />
             )}
             <span>{message.text}</span>
           </div>
-          <button onClick={() => setMessage(null)} className="p-1 hover:opacity-70">
+          <button onClick={() => setMessage(null)} className="p-1 text-text-3 hover:text-text">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -179,14 +173,14 @@ export const CandidateProfileScreen: React.FC = () => {
               <button
                 key={sec.id}
                 onClick={() => setActiveSection(sec.id)}
-                className={`relative w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors ${
+                className={`relative w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-colors ${
                   active ? 'text-text font-semibold' : 'text-text-2 hover:text-text hover:bg-selected'
                 }`}
               >
                 {active && (
                   <motion.span
                     layoutId="profile-section-pill"
-                    className="absolute inset-0 rounded-card bg-selected border border-border"
+                    className="absolute inset-0 rounded-xl bg-selected border border-border/80"
                     transition={spring.layout}
                   />
                 )}
@@ -205,7 +199,7 @@ export const CandidateProfileScreen: React.FC = () => {
         {/* Right Section Content */}
         <div className="lg:col-span-8 space-y-4">
           {activeSection === 'basics' && (
-            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-5">
+            <div className="border-t border-border/60 pt-6 space-y-6">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-text-3">
                 Candidate Identity
               </h3>
@@ -228,12 +222,12 @@ export const CandidateProfileScreen: React.FC = () => {
                 <div className="pt-4 border-t border-border space-y-3">
                   <h4 className="text-xs font-semibold text-text-3 uppercase">Verified Contacts</h4>
                   {contactFacts.map((cf) => (
-                    <div key={cf.id} className="p-4 rounded-md border border-border bg-bg-elev-2 flex items-center justify-between text-xs">
+                    <div key={cf.id} className="py-3 border-b border-border/40 flex items-center justify-between text-xs">
                       <div>
                         <p className="font-semibold text-text">{cf.value?.full_name || 'Contact Info'}</p>
                         <p className="text-text-2 font-mono mt-0.5">{cf.value?.email} · {cf.value?.phone}</p>
                       </div>
-                      <span className="font-mono text-[10px] text-ok px-2 py-0.5 rounded bg-ok-subtle">
+                      <span className="font-mono text-[10px] text-text-3 px-2 py-0.5 rounded border border-border/60 bg-transparent uppercase tracking-wider">
                         {cf.provenance}
                       </span>
                     </div>
@@ -244,14 +238,14 @@ export const CandidateProfileScreen: React.FC = () => {
           )}
 
           {activeSection === 'experience' && (
-            <div className="space-y-3">
+            <div className="space-y-1 divide-y divide-border/60 border-t border-border/60">
               {experienceFacts.length === 0 ? (
-                <div className="p-12 rounded-card border border-border bg-bg-elev-1 text-center text-xs text-text-3">
+                <div className="py-12 text-center text-xs text-text-3">
                   No experience records parsed yet. Upload your master resume above.
                 </div>
               ) : (
                 experienceFacts.map((ef) => (
-                  <div key={ef.id} className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-3 shadow-1">
+                  <div key={ef.id} className="py-6 space-y-3">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h4 className="text-base font-semibold text-text">{ef.value?.title || ef.key}</h4>
@@ -288,14 +282,14 @@ export const CandidateProfileScreen: React.FC = () => {
           )}
 
           {activeSection === 'education' && (
-            <div className="space-y-3">
+            <div className="space-y-1 divide-y divide-border/60 border-t border-border/60">
               {educationFacts.length === 0 ? (
-                <div className="p-12 rounded-card border border-border bg-bg-elev-1 text-center text-xs text-text-3">
+                <div className="py-12 text-center text-xs text-text-3">
                   No education records parsed yet.
                 </div>
               ) : (
                 educationFacts.map((ef) => (
-                  <div key={ef.id} className="rounded-card border border-border bg-bg-elev-1 p-6 flex items-start justify-between shadow-1">
+                  <div key={ef.id} className="py-5 flex items-start justify-between">
                     <div className="space-y-1">
                       <h4 className="text-base font-semibold text-text">
                         {ef.value?.degree_level} in {ef.value?.field || ef.key}
@@ -317,7 +311,7 @@ export const CandidateProfileScreen: React.FC = () => {
           )}
 
           {activeSection === 'skills' && (
-            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
+            <div className="border-t border-border/60 pt-6 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-border">
                 <h3 className="text-sm font-semibold text-text">Verified Skills ({skillFacts.length})</h3>
                 <span className="text-xs text-text-3 font-mono">Immutable Graph Records</span>
@@ -326,7 +320,7 @@ export const CandidateProfileScreen: React.FC = () => {
                 {skillFacts.map((sf) => (
                   <span
                     key={sf.id}
-                    className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-bg-elev-2 text-xs font-mono text-text hover:border-border-strong transition-colors"
+                    className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-bg-elev-1 text-xs font-mono text-text hover:border-border-strong transition-colors"
                   >
                     <span>{sf.value?.name || sf.key}</span>
                     <button
@@ -342,7 +336,7 @@ export const CandidateProfileScreen: React.FC = () => {
           )}
 
           {activeSection === 'work_auth' && (
-            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
+            <div className="border-t border-border/60 pt-6 space-y-4">
               <h3 className="text-sm font-semibold text-text">Work Authorization Countries</h3>
               {authFacts.length === 0 ? (
                 <p className="text-xs text-text-3">No work authorization facts registered.</p>
@@ -350,7 +344,7 @@ export const CandidateProfileScreen: React.FC = () => {
                 authFacts.map((af) => (
                   <div key={af.id} className="flex items-center gap-2">
                     {(af.value?.authorized_countries || []).map((c: string) => (
-                      <span key={c} className="px-3 py-1 rounded-full bg-ok-subtle border border-ok/20 text-ok text-xs font-mono font-semibold">
+                      <span key={c} className="px-3 py-1 rounded-full bg-bg-input border border-border text-text-2 text-xs font-mono">
                         {c}
                       </span>
                     ))}
@@ -361,7 +355,7 @@ export const CandidateProfileScreen: React.FC = () => {
           )}
 
           {activeSection === 'advanced' && (
-            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-3">
+            <div className="border-t border-border/60 pt-6 space-y-3">
               <h3 className="text-xs uppercase tracking-wider font-semibold text-text-3">
                 Advanced: Raw Fact Graph JSON
               </h3>
