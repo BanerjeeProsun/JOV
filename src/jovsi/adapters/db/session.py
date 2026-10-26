@@ -47,6 +47,14 @@ def init_db(target_engine: Engine = engine) -> None:
             pass
 
         try:
+            res_s = conn.exec_driver_sql("PRAGMA table_info(user_settings)").fetchall()
+            col_names_s = [r[1] for r in res_s]
+            if col_names_s and "autonomy_level" not in col_names_s:
+                conn.exec_driver_sql("ALTER TABLE user_settings ADD COLUMN autonomy_level VARCHAR(32) DEFAULT 'L0_DRY_RUN'")
+        except Exception:
+            pass
+
+        try:
             # Seed default job sources registry if empty
             count = conn.exec_driver_sql("SELECT COUNT(*) FROM job_sources").scalar()
             if count == 0:

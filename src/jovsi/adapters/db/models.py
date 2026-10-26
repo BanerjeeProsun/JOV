@@ -372,6 +372,7 @@ class UserSettingsDB(Base):
     daily_cap_per_portal: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
     daily_cap_per_company: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata", nullable=False)
+    autonomy_level: Mapped[str] = mapped_column(String(32), default="L0_DRY_RUN", nullable=False)
     allow_real_submission: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

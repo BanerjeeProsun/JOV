@@ -10,8 +10,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, distinct, text
 
+from jovsi.config import settings
 from jovsi.adapters.db.session import get_db
-from jovsi.adapters.db.models import ApplicationDB, CandidateDB, EvidenceDB, EventDB, GateReportDB, RateLedgerDB, SubmissionAttemptDB, UserDB
+from jovsi.adapters.db.models import ApplicationDB, CandidateDB, EvidenceDB, EventDB, GateReportDB, RateLedgerDB, SubmissionAttemptDB, UserDB, UserSettingsDB
 from jovsi.api.dependencies import get_optional_current_user
 
 
@@ -34,6 +35,12 @@ def get_metrics_summary(
 
     user_app_ids = [row[0] for row in db.execute(app_base).fetchall()]
 
+    autonomy = settings.AUTONOMY_LEVEL.value
+    if current_user:
+        user_settings = db.scalar(select(UserSettingsDB).where(UserSettingsDB.user_id == current_user.id))
+        if user_settings and getattr(user_settings, "autonomy_level", None):
+            autonomy = user_settings.autonomy_level
+
     if not user_app_ids:
         return {
             "discovered": 0,
@@ -45,7 +52,7 @@ def get_metrics_summary(
             "failed": 0,
             "quota_used_today": 0,
             "confirmation_rate": 0.0,
-            "autonomy_level": "L0_DRY_RUN",
+            "autonomy_level": autonomy,
         }
 
     # 1. Prepared: Distinct applications that have ever reached READY_FOR_REVIEW
@@ -113,5 +120,5 @@ def get_metrics_summary(
         "failed": failed_count,
         "quota_used_today": quota_used_today,
         "confirmation_rate": confirmation_rate,
-        "autonomy_level": "L0_DRY_RUN",
+        "autonomy_level": autonomy,
     }

@@ -277,6 +277,28 @@
     - Approve Package Hash button enabled only when all gate checks pass.
     - Dynamic floating action bar switching between "Approve Package Hash" and "Submit Application".
 
+## Decision 018: Honest Dashboard Metrics, Display Name Greeting Contract & Persisted User Controls
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §7.13 & §7.14 mandate honest dashboard metrics computed purely from persistent database events and evidence tables (zero hardcoded mock counters, zero synthetic submissions), a landing/dashboard greeting strictly derived from the authenticated account's persisted display name, and full candidate settings persistence (suitability floor, volume caps, timezone, and pipeline autonomy level `L0_DRY_RUN` to `L2_SUPERVISED`) with strict account privacy isolation.
+- **Decision**:
+  - Implemented dynamic database-backed settings in `src/jovsi/api/routers/settings.py` and `UserSettingsDB`:
+    - Added `autonomy_level` column to `UserSettingsDB` with automatic SQLite schema migration in `init_db`.
+    - Persists `suitability_floor`, `daily_cap_global`, `daily_cap_per_portal`, `daily_cap_per_company`, `timezone`, and `autonomy_level` on a per-user basis.
+    - Isolated settings query: each user retrieves and updates only their own persisted preferences.
+  - Honest Metrics Aggregation in `src/jovsi/api/routers/metrics.py`:
+    - Pure SQL query aggregation across `events`, `applications`, `submission_attempts`, and `evidence` tables.
+    - Zero in-memory synthetic counters.
+    - Scoped strictly to the authenticated user's candidate records; returns an honest zero baseline when no applications exist.
+    - Dynamic retrieval of the user's persisted `autonomy_level`.
+  - Frontend Display Name Greeting & UI Settings Integration:
+    - Landing and Command Center greeting dynamically renders:
+      - Authenticated with display name: `Welcome back, {display_name}.`
+      - Authenticated without display name: `Welcome back.`
+      - Unauthenticated: `Your next role, in focus.`
+    - Updated `SettingsScreen.tsx` with dedicated interactive autonomy level cards (`L0 Dry Run`, `L1 Assisted Handoff`, `L2 Supervised Submit`) and timezone input alongside existing daily rate caps and suitability sliders.
+
+
 
 
 

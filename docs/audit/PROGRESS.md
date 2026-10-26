@@ -382,11 +382,43 @@
 ---
 
 ### Milestone 15: Dashboard & Settings Integration (Honest Greetings & Controls)
-- **Status**: IN PROGRESS
 - **Scope**:
   - Real Dashboard Metrics (§7.13): Replace mock metrics with real persisted candidate counts (no fake numbers, no synthetic submissions).
   - Persisted Display Name Greeting (§7.13): Strict landing/dashboard greeting (`Welcome back, {display_name}.` / `Welcome back.` / `Your next role, in focus.`).
   - Candidate Settings Persistence (§7.14): Persist candidate search preferences, daily application caps, autonomy level controls (`L0_DRY_RUN` to `L2_SUPERVISED`), and privacy isolation.
+- **Implemented & Verified**:
+  - `src/jovsi/api/routers/metrics.py`:
+    - Pure SQL queries aggregating applications, events, submission attempts, rate ledger, and evidence tables. Zero hardcoded counters.
+    - Honest zero-baseline when no applications exist.
+    - Scoped strictly to candidate records belonging to the authenticated account.
+    - Dynamic retrieval of the user's persisted `autonomy_level`.
+  - `src/jovsi/api/routers/settings.py` & `src/jovsi/adapters/db/models.py`:
+    - Added `autonomy_level` column to `UserSettingsDB` with automatic SQLite schema migration in `init_db`.
+    - Persists user preferences: `suitability_floor`, `daily_cap_global`, `daily_cap_per_portal`, `daily_cap_per_company`, `timezone`, and `autonomy_level`.
+    - Enforces isolation between accounts.
+  - `web/src/screens/OverviewScreen.tsx`:
+    - Dynamic greeting based on persisted display name:
+      - Authenticated with display name: `Welcome back, {display_name}.`
+      - Authenticated without display name: `Welcome back.`
+      - Unauthenticated: `Your next role, in focus.`
+    - Honest metric display: Confirmed applications, Awaiting Review, Discovered Opportunities, Pending Confirmation.
+  - `web/src/screens/SettingsScreen.tsx`:
+    - Added interactive autonomy level cards (`L0 Dry Run`, `L1 Assisted Handoff`, `L2 Supervised Submit`) and timezone input alongside rate caps and suitability sliders.
+  - `tests/integration/test_dashboard_and_settings.py`:
+    - Multi-user isolation test verifying zero-baseline metrics, settings persistence per user, isolation between accounts, and display name profile updates.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 212 passed, 0 failed in 39.53s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 979ms.
+- **Definition of Done for M15**: Honest dashboard metrics, display name greeting contract, per-user settings persistence with autonomy controls and multi-user isolation verified.
+
+---
+
+### Milestone 16: Security Hardening Pass
+- **Status**: IN PROGRESS
+- **Scope**:
+  - Security audit and verification across all endpoints: user ownership boundaries (`_check_app_access`), secrets exposure scanning, SQL injection protection, SSRF boundaries, and CSRF/CORS rules.
+  - Verification test suite: `tests/security/`.
+
 
 
 

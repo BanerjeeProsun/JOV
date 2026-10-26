@@ -56,6 +56,7 @@ export const SettingsScreen: React.FC = () => {
   const [dailyCapPortal, setDailyCapPortal] = useState(5)
   const [dailyCapCompany, setDailyCapCompany] = useState(2)
   const [timezone, setTimezone] = useState('Asia/Kolkata')
+  const [autonomyLevel, setAutonomyLevel] = useState('L0_DRY_RUN')
   const [allowRealSubmission, setAllowRealSubmission] = useState(false)
 
   // Sources Health State
@@ -90,6 +91,7 @@ export const SettingsScreen: React.FC = () => {
       setDailyCapPortal((data as any).daily_cap_per_portal ?? 5)
       setDailyCapCompany((data as any).daily_cap_per_company ?? 2)
       setTimezone((data as any).timezone ?? 'Asia/Kolkata')
+      setAutonomyLevel((data as any).autonomy_level ?? 'L0_DRY_RUN')
       setAllowRealSubmission((data as any).allow_real_submission ?? false)
     } catch (err: any) {
       setError(err.message || 'Failed to fetch settings')
@@ -114,6 +116,7 @@ export const SettingsScreen: React.FC = () => {
         daily_cap_per_portal: Number(dailyCapPortal),
         daily_cap_per_company: Number(dailyCapCompany),
         timezone,
+        autonomy_level: autonomyLevel,
         allow_real_submission: allowRealSubmission,
         submit_host_allowlist: allowRealSubmission
           ? ['*']
@@ -362,6 +365,45 @@ export const SettingsScreen: React.FC = () => {
                         className="app-input"
                       />
                     </div>
+                  </div>
+
+                  {/* Autonomy Level Controls */}
+                  <div className="space-y-2 pt-4 border-t border-border">
+                    <label className="text-xs font-semibold text-text">Pipeline Autonomy Level</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        { id: 'L0_DRY_RUN', title: 'L0 Dry Run', desc: 'Read-only inspection and pre-fill dry-run. No submissions.' },
+                        { id: 'L1_MOCK_SUPERVISED', title: 'L1 Assisted Handoff', desc: 'Pre-fills portal and stages tailored packages with manual export kit.' },
+                        { id: 'L2_SUPERVISED', title: 'L2 Supervised Submit', desc: 'Executes guarded submission after explicit cryptographic approval.' },
+                      ].map((lvl) => (
+                        <button
+                          key={lvl.id}
+                          type="button"
+                          onClick={() => setAutonomyLevel(lvl.id)}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            autonomyLevel === lvl.id
+                              ? 'border-accent bg-accent/10 shadow-sm'
+                              : 'border-border/70 hover:border-border bg-bg-elev-1/30'
+                          }`}
+                        >
+                          <span className="block text-xs font-semibold text-text">{lvl.title}</span>
+                          <span className="block text-[11px] text-text-3 mt-1 leading-snug">{lvl.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Timezone */}
+                  <div className="space-y-1 pt-4 border-t border-border">
+                    <label className="text-xs font-semibold text-text">Workspace Timezone</label>
+                    <input
+                      type="text"
+                      value={timezone}
+                      onChange={(e) => setTimezone(e.target.value)}
+                      className="app-input max-w-sm"
+                      placeholder="e.g. Asia/Kolkata, UTC, America/New_York"
+                    />
+                    <p className="text-[11px] text-text-3">Daily submission quota reset uses this timezone.</p>
                   </div>
                 </div>
 

@@ -24,6 +24,7 @@ class SettingsUpdate(BaseModel):
     daily_cap_per_portal: Optional[int] = Field(None, ge=1)
     daily_cap_per_company: Optional[int] = Field(None, ge=1)
     timezone: Optional[str] = None
+    autonomy_level: Optional[str] = None
     allow_real_submission: Optional[bool] = None
     submit_host_allowlist: Optional[List[str]] = None
 
@@ -39,6 +40,7 @@ def get_settings(
     daily_cap_per_company = settings.DAILY_CAP_PER_COMPANY
     tz = settings.TIMEZONE
     allow_real = settings.ALLOW_REAL_SUBMISSION
+    autonomy = settings.AUTONOMY_LEVEL.value
 
     if current_user:
         user_settings = db.scalar(select(UserSettingsDB).where(UserSettingsDB.user_id == current_user.id))
@@ -49,6 +51,8 @@ def get_settings(
             daily_cap_per_company = user_settings.daily_cap_per_company
             tz = user_settings.timezone
             allow_real = user_settings.allow_real_submission
+            if getattr(user_settings, "autonomy_level", None):
+                autonomy = user_settings.autonomy_level
 
     return {
         "suitability_floor": suitability_floor,
@@ -56,7 +60,7 @@ def get_settings(
         "daily_cap_per_portal": daily_cap_per_portal,
         "daily_cap_per_company": daily_cap_per_company,
         "timezone": tz,
-        "autonomy_level": settings.AUTONOMY_LEVEL.value,
+        "autonomy_level": autonomy,
         "allow_real_submission": allow_real,
         "submit_host_allowlist": settings.SUBMIT_HOST_ALLOWLIST,
         "min_evidence_level": settings.MIN_EVIDENCE_LEVEL.value,
@@ -100,6 +104,8 @@ def update_settings(
             user_settings.daily_cap_per_company = update.daily_cap_per_company
         if update.timezone is not None:
             user_settings.timezone = update.timezone
+        if update.autonomy_level is not None:
+            user_settings.autonomy_level = update.autonomy_level
         if update.allow_real_submission is not None:
             user_settings.allow_real_submission = update.allow_real_submission
         db.commit()
