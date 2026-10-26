@@ -414,10 +414,37 @@
 ---
 
 ### Milestone 16: Security Hardening Pass
-- **Status**: IN PROGRESS
 - **Scope**:
   - Security audit and verification across all endpoints: user ownership boundaries (`_check_app_access`), secrets exposure scanning, SQL injection protection, SSRF boundaries, and CSRF/CORS rules.
   - Verification test suite: `tests/security/`.
+- **Implemented & Verified**:
+  - `tests/security/test_account_isolation.py`:
+    - Two-account isolation verified across candidate profiles, facts, master resumes, document downloads, application creation, evaluation, resume generation, gate execution, PDF downloads, resume/cover-letter editing, offline ZIP exports, and portal authentication pause/resume. All foreign access attempts rejected with HTTP 403 Forbidden.
+  - `tests/security/test_authentication.py`:
+    - Full session lifecycle verified: registration, PBKDF2-HMAC-SHA256 password hashing, login, session idle timeouts, password rotation, session revocation, and profile display name updates.
+  - `tests/security/test_secret_leakage.py`:
+    - Automated scanner verifying zero leaked API keys (Google, OpenAI, AWS, GitHub) or private keys across all git tracked files and git history diffs.
+  - `src/jovsi/services/ssrf.py`:
+    - SSRF-safe URL fetcher blocking loopback, RFC1918 private subnets, cloud metadata addresses (169.254.169.254), and local network addresses.
+  - `src/jovsi/domain/sanitizer.py`:
+    - Text and HTML sanitizer stripping executable scripts, hidden styles, zero-width characters, and Unicode bidi control exploits.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v tests/security/` -> 16 passed, 0 failed in 8.51s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 979ms.
+- **Definition of Done for M16**: Multi-tenant data isolation, secret hygiene, SSRF boundaries, and authentication lifecycle verified.
+
+---
+
+### Milestone 17: Full End-to-End Acceptance Run & Final Report
+- **Status**: IN PROGRESS
+- **Scope**:
+  - Full End-to-End Acceptance Run:
+    - Execute 14-step vertical slice acceptance test (`tests/e2e/test_vertical_slice.py`).
+    - Execute Playwright browser UI vertical slice test (`tests/e2e/test_ui_vertical_slice.py`).
+    - Execute entire repository test suite (`pytest -v`).
+  - Comprehensive Final Recovery Report:
+    - Author `docs/audit/FINAL_REPORT.md` documenting the verified status taxonomy, inventory disposition, recovery actions taken, verified command results, and operational runbook.
+
 
 
 

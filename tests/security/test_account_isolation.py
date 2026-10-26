@@ -216,6 +216,41 @@ def test_two_account_application_pipeline_isolation(isolated_env):
     cross_gate = client_b.post(f"/api/v1/applications/{alice_app_id}/gate")
     assert cross_gate.status_code == 403
 
+    # Bob tries to download Alice's resume PDF -> 403 Forbidden
+    cross_res_pdf = client_b.get(f"/api/v1/applications/{alice_app_id}/resume/pdf")
+    assert cross_res_pdf.status_code == 403
+
+    # Bob tries to edit Alice's resume -> 403 Forbidden
+    cross_res_edit = client_b.put(
+        f"/api/v1/applications/{alice_app_id}/resume",
+        json={"candidate_name": "Bob", "email": "bob@example.com", "phone": "123", "sections": []},
+    )
+    assert cross_res_edit.status_code == 403
+
+    # Bob tries to download Alice's cover letter PDF -> 403 Forbidden
+    cross_cl_pdf = client_b.get(f"/api/v1/applications/{alice_app_id}/cover-letter/pdf")
+    assert cross_cl_pdf.status_code == 403
+
+    # Bob tries to edit Alice's cover letter -> 403 Forbidden
+    cross_cl_edit = client_b.put(f"/api/v1/applications/{alice_app_id}/cover-letter", json={"cover_letter": "hack"})
+    assert cross_cl_edit.status_code == 403
+
+    # Bob tries to download Alice's handoff package ZIP -> 403 Forbidden
+    cross_pkg_zip = client_b.get(f"/api/v1/applications/{alice_app_id}/package.zip")
+    assert cross_pkg_zip.status_code == 403
+
+    # Bob tries to pause Alice's portal auth -> 403 Forbidden
+    cross_pause = client_b.post(f"/api/v1/applications/{alice_app_id}/portal-auth/pause")
+    assert cross_pause.status_code == 403
+
+    # Bob tries to resume Alice's portal auth -> 403 Forbidden
+    cross_resume = client_b.post(f"/api/v1/applications/{alice_app_id}/portal-auth/resume", json={})
+    assert cross_resume.status_code == 403
+
+    # Bob tries to approve Alice's application -> 403 Forbidden
+    cross_appr = client_b.post(f"/api/v1/applications/{alice_app_id}/approve", json={"package_hash": "abc"})
+    assert cross_appr.status_code == 403
+
     # Bob checks metrics -> all counts are 0 for Bob
     metrics_b = client_b.get("/api/v1/metrics/summary").json()
     assert metrics_b["discovered"] == 0

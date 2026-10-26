@@ -298,6 +298,18 @@
       - Unauthenticated: `Your next role, in focus.`
     - Updated `SettingsScreen.tsx` with dedicated interactive autonomy level cards (`L0 Dry Run`, `L1 Assisted Handoff`, `L2 Supervised Submit`) and timezone input alongside existing daily rate caps and suitability sliders.
 
+## Decision 019: Security Hardening, Multi-Tenant Boundaries & Secret Leakage Prevention
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §3A, §4, §7.15 mandate strict security boundary enforcement across all private candidate data and application endpoints, complete elimination of secret leakage in git tracked files, commits, and API responses, SSRF protections on external fetching, and HTML/text sanitization.
+- **Decision**:
+  - Enforced strict authorization checks (`_check_app_access`) across all pipeline routes (`POST /plan`, `GET/PUT /fields`, `POST /gate`, `POST /approve`, `POST /submit`, `PUT /resume`, `GET /resume/pdf`, `PUT /cover-letter`, `GET /cover-letter/pdf`, `GET /package.zip`, `POST /portal-auth/pause`, `POST /portal-auth/resume`).
+  - Access to any foreign candidate or application record by a non-owning user raises HTTP 403 Forbidden without leaking resource details.
+  - Secret scanning test suite (`tests/security/test_secret_leakage.py`) continuously asserts zero leaked API keys or private keys in git tracked files and git history diffs.
+  - SSRF protection (`src/jovsi/services/ssrf.py`) validates scheme, blocks loopback/link-local/private RFC1918 IPs and AWS/cloud metadata addresses (`169.254.169.254`) before performing any HTTP requests.
+  - HTML & Text sanitizer (`src/jovsi/domain/sanitizer.py`) strips scripts, styles, hidden tags, and zero-width/bidi control characters.
+
+
 
 
 
