@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
-import { Card } from '../components/Card'
-import { Button } from '../components/Button'
+import { AnimatePresence, motion, LayoutGroup } from 'motion/react'
+import { Button } from '../components/ui/Button'
+import { Dialog } from '../components/ui/Dialog'
 import { api } from '../api/client'
 import type { Candidate, Job } from '../types'
 import {
@@ -13,8 +13,11 @@ import {
   CheckCircle2,
   X,
   Sparkles,
-  Building,
+  Building2,
+  GraduationCap,
+  Clock,
 } from 'lucide-react'
+import { spring, fadeUp } from '../design/motion'
 
 interface JobDiscoveryScreenProps {
   onSelectApplication?: (appId: string) => void
@@ -29,20 +32,20 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   const [loading, setLoading] = useState(true)
   const [discovering, setDiscovering] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [companyQuery, setCompanyQuery] = useState('')
-  const [selectedSource, setSelectedSource] = useState('all')
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [startingAppId, setStartingAppId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
-  // Import Form State (Pre-populated for instant testing & convenience)
+  // Pre-populated default form for testing & instant use
   const [importForm, setImportForm] = useState({
     title: 'Senior Software Engineer',
     company_name: 'Mock Acme Corp',
     source_url: 'http://127.0.0.1:8765/jobs/job-123/apply',
     portal_key: 'mock_hostile',
     native_id: 'job-123',
-    raw_description: 'We are looking for a Senior Software Engineer with Python and React experience. Required: 3+ years experience, Bachelor degree.',
+    raw_description:
+      'We are looking for a Senior Software Engineer with Python and React experience. Required: 3+ years experience, Bachelor degree.',
     min_degree: 'BACHELOR',
     min_experience_months: 36,
     required_skills: 'Python, FastAPI, React, SQL',
@@ -59,6 +62,9 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       ])
       setActiveCandidate(cand)
       setJobs(jobsData)
+      if (jobsData.length > 0 && !selectedJobId) {
+        setSelectedJobId(jobsData[0].id)
+      }
     } catch (err: any) {
       console.error(err)
     } finally {
@@ -75,9 +81,8 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     setActionMessage(null)
     try {
       const resp = await api.discoverJobs({
-        source: selectedSource,
+        source: 'all',
         query: searchQuery,
-        company: companyQuery || undefined,
         candidate_id: activeCandidate?.id,
         limit: 15,
       })
@@ -90,8 +95,8 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     }
   }
 
-  const handleImportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleImportSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     setImporting(true)
     setImportError(null)
     try {
@@ -129,11 +134,11 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     setStartingAppId(job.id)
     try {
       const activeCand = await api.ensureActiveCandidate()
-      const res = await api.createApplication(activeCand.id, job.id)
-      setActionMessage(`Application #${res.id.slice(0, 8)} created in state: ${res.state}`)
+      await api.createApplication(activeCand.id, job.id)
+      setActionMessage(`Application created for ${job.title_norm || job.company_norm}`)
       setTimeout(() => {
         onNavigateToQueue()
-      }, 800)
+      }, 400)
     } catch (err: any) {
       setActionMessage(`Error starting application: ${err.message}`)
     } finally {
@@ -150,345 +155,396 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     )
   })
 
+  const selectedJob = jobs.find((j) => j.id === selectedJobId) || filteredJobs[0] || null
+
   return (
-    <div className="screen-page">
-      {/* Title & Introduction */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+    <div className="screen-page space-y-8">
+      {/* Header & Controls */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-            Real Market Sourcing
-          </span>
-          <h1 className="page-title">
-            Job Discovery
-          </h1>
+          <p className="page-kicker">Real Market Sourcing</p>
+          <h1 className="page-title">Job Discovery</h1>
           <p className="page-intro">
-            Query live ATS endpoints (Greenhouse, Lever) and remote job directories, or import any job posting URL with sanitization provenance.
+            Live ATS endpoints (Greenhouse, Lever) and direct portal listings. Every opportunity is sanitized with provenance tracking.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <Button
             variant="secondary"
-            size="sm"
+            size="md"
             onClick={() => setShowImportModal(true)}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             <span>Import Job Posting</span>
           </Button>
           <Button
             variant="primary"
-            size="sm"
+            size="md"
             onClick={handleDiscoverLive}
             loading={discovering || loading}
           >
-            <Sparkles className="w-3.5 h-3.5 text-coral-brand" />
+            <Sparkles className="w-4 h-4 text-pearl-1" />
             <span>Discover Live Jobs</span>
           </Button>
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Action Notification */}
       {actionMessage && (
-        <div className="mb-6 p-4 rounded-apple-md text-sm flex items-center justify-between border bg-surface border-border-subtle shadow-sm text-text-primary">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-success-green flex-shrink-0" />
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="p-4 rounded-card border border-border bg-bg-elev-1 text-sm flex items-center justify-between shadow-1 text-text"
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
             <span>{actionMessage}</span>
           </div>
-          <button onClick={() => setActionMessage(null)} className="text-text-tertiary hover:text-text-primary">
+          <button
+            onClick={() => setActionMessage(null)}
+            className="p-1 rounded-full text-text-3 hover:text-text hover:bg-selected transition-colors"
+          >
             <X className="w-4 h-4" />
           </button>
-        </div>
+        </motion.div>
       )}
 
-      {/* Live Search & Filter Bar */}
-      <Card className="mb-8 p-5 bg-surface">
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-          <div className="sm:col-span-5 relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
-            <input
-              type="text"
-              placeholder="Job title, keywords, or skills..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-full text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-            />
-          </div>
-
-          <div className="sm:col-span-4 relative">
-            <Building className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
-            <input
-              type="text"
-              placeholder="Company (e.g. Cloudflare, Figma, Stripe)..."
-              value={companyQuery}
-              onChange={(e) => setCompanyQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-full text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-            />
-          </div>
-
-          <div className="sm:col-span-3 flex items-center gap-2">
-            <select
-              value={selectedSource}
-              onChange={(e) => setSelectedSource(e.target.value)}
-              className="w-full py-2.5 px-3 rounded-full text-xs border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
+      {/* Search Toolbar */}
+      <div className="flex items-center gap-3 bg-bg-elev-1 p-2 rounded-full border border-border shadow-1">
+        <div className="flex-1 flex items-center gap-2.5 px-3">
+          <Search className="w-4 h-4 text-text-3 shrink-0" strokeWidth={1.5} />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by role title, company, or required skill…"
+            className="w-full bg-transparent text-[14px] text-text placeholder:text-text-3 outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="p-1 text-text-3 hover:text-text"
             >
-              <option value="all">All Live Sources</option>
-              <option value="greenhouse">Greenhouse ATS</option>
-              <option value="lever">Lever ATS</option>
-              <option value="jobicy">Jobicy Remote</option>
-            </select>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleDiscoverLive}
-              loading={discovering}
-            >
-              Search
-            </Button>
-          </div>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-      </Card>
+        <span className="text-xs text-text-3 font-mono px-3 py-1 rounded-full bg-bg-input">
+          {filteredJobs.length} {filteredJobs.length === 1 ? 'role' : 'roles'}
+        </span>
+      </div>
 
-      {/* Job Listings Grid */}
-      {filteredJobs.length === 0 ? (
-        <Card className="text-center py-16">
-          <Briefcase className="w-12 h-12 text-text-tertiary mx-auto mb-4 opacity-40" />
-          <h3 className="text-base font-semibold text-text-primary">
-            No opportunities loaded yet
-          </h3>
-          <p className="text-sm text-text-secondary max-w-md mx-auto mt-1 mb-6">
-            Run a live query across Greenhouse and Lever company boards, or manually import a job description using the button above.
-          </p>
-          <div className="flex justify-center gap-3">
-            <Button variant="primary" size="sm" onClick={handleDiscoverLive} loading={discovering}>
-              Search Cloudflare & Stripe Boards
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
-              Import Job URL
-            </Button>
+      {/* Two-Pane Layout with Shared Element Transitions */}
+      <LayoutGroup>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Dense Job List */}
+          <div className="lg:col-span-5 space-y-2.5">
+            {loading ? (
+              // Slow pearl shimmer skeleton loader
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((n) => (
+                  <div
+                    key={n}
+                    className="h-24 rounded-card bg-bg-elev-1 border border-border relative overflow-hidden"
+                  >
+                    <div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent"
+                      style={{ animation: 'pearl-shimmer 2.2s infinite ease-in-out' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="rounded-card border border-border bg-bg-elev-1 p-12 text-center text-text-3">
+                <Briefcase className="w-8 h-8 mx-auto mb-3 opacity-40" strokeWidth={1.5} />
+                <p className="text-sm font-medium text-text">No opportunities found</p>
+                <p className="text-xs mt-1 text-text-3">
+                  Import a job posting URL or discover live roles across feeds.
+                </p>
+              </div>
+            ) : (
+              <AnimatePresence mode="popLayout">
+                {filteredJobs.map((job) => {
+                  const isSelected = selectedJob?.id === job.id
+                  const skills = job.requirements?.required_skills || []
+
+                  return (
+                    <motion.div
+                      layout
+                      key={job.id}
+                      layoutId={`job-${job.id}`}
+                      onClick={() => setSelectedJobId(job.id)}
+                      className={`relative p-5 rounded-card border transition-colors cursor-pointer select-none ${
+                        isSelected
+                          ? 'bg-selected border-border-strong shadow-1'
+                          : 'bg-bg-elev-1 border-border hover:bg-bg-elev-2 hover:border-border-strong'
+                      }`}
+                    >
+                      {/* Active pearl border indicator */}
+                      {isSelected && (
+                        <motion.div
+                          layoutId="job-active-indicator"
+                          className="absolute inset-0 rounded-card pointer-events-none border border-pearl-1/40"
+                          transition={spring.layout}
+                        />
+                      )}
+
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-[15px] text-text leading-snug truncate">
+                            {job.title_norm || job.title || 'Open Position'}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-text-2">
+                            <span className="font-medium text-text">
+                              {job.company_norm || job.company || 'Company'}
+                            </span>
+                            <span className="opacity-30">·</span>
+                            <span className="text-text-3">
+                              {job.source || 'portal'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="text-[11px] font-mono text-text-3 shrink-0">
+                          {job.created_at ? new Date(job.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recent'}
+                        </span>
+                      </div>
+
+                      {/* Required skills tags */}
+                      {skills.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border/50">
+                          {skills.slice(0, 3).map((skill: string, sIdx: number) => (
+                            <span
+                              key={sIdx}
+                              className="text-[11px] px-2 py-0.5 rounded-full bg-bg-input text-text-3 font-mono"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                          {skills.length > 3 && (
+                            <span className="text-[10px] text-text-3 font-mono">
+                              +{skills.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  )
+                })}
+              </AnimatePresence>
+            )}
           </div>
-        </Card>
-      ) : (
-        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <AnimatePresence mode="popLayout">
-          {filteredJobs.map((job) => {
-            const isApplying = startingAppId === job.id
-            const reqSkills = job.requirements?.required_skills || []
 
-            return (
-              <motion.div layout key={job.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: .98 }} transition={{ duration: .22 }}>
-              <Card
-                key={job.id}
-                className="flex flex-col justify-between p-6 bg-surface"
+          {/* Right Column: Expanded Job Detail */}
+          <div className="lg:col-span-7 sticky top-24">
+            {selectedJob ? (
+              <motion.div
+                key={selectedJob.id}
+                variants={fadeUp}
+                initial="hidden"
+                animate="show"
+                className="rounded-card border border-border bg-bg-elev-1 p-8 shadow-1 space-y-6"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-black/5 text-text-secondary border border-black/5 uppercase tracking-wide">
-                      {job.source}
+                {/* Header Info */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-border">
+                  <div className="space-y-1">
+                    <span className="text-[11px] uppercase tracking-wider font-mono text-text-3">
+                      {selectedJob.portal_key || selectedJob.source || 'Standard listing'}
                     </span>
-                    {job.requirements?.accepted_work_modes && (
-                      <span className="text-xs text-text-tertiary capitalize">
-                        {job.requirements.accepted_work_modes.join(', ')}
+                    <h2 className="text-2xl font-semibold tracking-tight text-text">
+                      {selectedJob.title_norm || selectedJob.title}
+                    </h2>
+                    <div className="flex items-center gap-3 text-sm text-text-2 pt-1">
+                      <span className="flex items-center gap-1 text-text font-medium">
+                        <Building2 className="w-4 h-4 text-text-3" strokeWidth={1.5} />
+                        {selectedJob.company_norm || selectedJob.company}
                       </span>
-                    )}
+                      {selectedJob.requirements?.min_degree && (
+                        <span className="flex items-center gap-1 text-xs text-text-3">
+                          <GraduationCap className="w-3.5 h-3.5" />
+                          {selectedJob.requirements.min_degree}
+                        </span>
+                      )}
+                      {selectedJob.requirements?.min_experience_months && (
+                        <span className="flex items-center gap-1 text-xs text-text-3">
+                          <Clock className="w-3.5 h-3.5" />
+                          {Math.round(selectedJob.requirements.min_experience_months / 12)}y exp
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <h3 className="font-semibold text-lg text-text-primary tracking-tight">
-                    {job.title_norm || job.title}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1 text-sm text-text-secondary font-medium">
-                    <Building className="w-4 h-4 text-text-tertiary" />
-                    <span>{job.company_norm || job.company}</span>
+                  {/* Apply Action Button */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onClick={() => handleStartApplication(selectedJob)}
+                      loading={startingAppId === selectedJob.id}
+                    >
+                      <span>Apply</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
                   </div>
+                </div>
 
-                  <p className="text-xs text-text-tertiary mt-3 line-clamp-3 leading-relaxed">
-                    {job.description_clean}
-                  </p>
-
-                  {reqSkills.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-4">
-                      {reqSkills.slice(0, 5).map((skill: string) => (
+                {/* Required Skills */}
+                {selectedJob.requirements?.required_skills && selectedJob.requirements.required_skills.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs uppercase tracking-wider font-semibold text-text-3">
+                      Required Competencies
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedJob.requirements.required_skills.map((skill: string, idx: number) => (
                         <span
-                          key={skill}
-                          className="px-2 py-0.5 rounded-md bg-canvas text-text-secondary border border-border-subtle text-[11px]"
+                          key={idx}
+                          className="px-3 py-1 rounded-full border border-border bg-bg-elev-2 text-xs font-mono text-text"
                         >
                           {skill}
                         </span>
                       ))}
-                      {reqSkills.length > 5 && (
-                        <span className="text-[11px] text-text-tertiary self-center">
-                          +{reqSkills.length - 5} more
-                        </span>
-                      )}
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* Job Description */}
+                <div className="space-y-3">
+                  <h4 className="text-xs uppercase tracking-wider font-semibold text-text-3">
+                    Posting Overview
+                  </h4>
+                  <div className="text-[14px] text-text-2 leading-relaxed whitespace-pre-line max-h-[380px] overflow-y-auto pr-2 [scrollbar-width:thin]">
+                    {selectedJob.description_clean ||
+                      'No job description content provided.'}
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-5 border-t border-border-subtle mt-5">
-                  <a
-                    href={job.canonical_url || job.source_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-apple-blue hover:underline font-medium"
-                  >
-                    <span>View Listing</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    loading={isApplying}
-                    onClick={() => handleStartApplication(job)}
-                  >
-                    <span>Apply</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </Card>
+                {/* Provenance Link */}
+                {selectedJob.source_url && (
+                  <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-text-3">
+                    <span className="font-mono truncate max-w-md">
+                      Source: {selectedJob.source_url}
+                    </span>
+                    <a
+                      href={selectedJob.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-text hover:underline"
+                    >
+                      <span>Open portal link</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
               </motion.div>
-            )
-          })}
-          </AnimatePresence>
-        </motion.div>
-      )}
-
-      {/* Import Job Modal */}
-      <AnimatePresence>
-      {showImportModal && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--overlay)] backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowImportModal(false)}>
-          <motion.div initial={{ opacity: 0, y: 12, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} transition={{ type: 'spring', stiffness: 360, damping: 30 }} onClick={(event) => event.stopPropagation()}>
-          <Card className="glass-dialog w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-text-primary text-lg">
-                  Import Job Posting
-                </h3>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Job content is sanitized, canonicalized, and hashed to prevent injection.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowImportModal(false)}
-                className="text-text-tertiary hover:text-text-primary"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {importError && (
-              <div className="mb-4 p-3 rounded-apple-sm text-xs bg-danger-subtle text-danger-red border border-danger-red/20">
-                {importError}
+            ) : (
+              <div className="rounded-card border border-border bg-bg-elev-1 p-12 text-center text-text-3">
+                Select a role from the left to view details and start an application.
               </div>
             )}
+          </div>
+        </div>
+      </LayoutGroup>
 
-            <form onSubmit={handleImportSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                    Job Title
-                  </label>
-                  <input
-                    type="text"
-                    value={importForm.title}
-                    onChange={(e) => setImportForm({ ...importForm, title: e.target.value })}
-                    className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                    Company Name
-                  </label>
-                  <input
-                    type="text"
-                    value={importForm.company_name}
-                    onChange={(e) => setImportForm({ ...importForm, company_name: e.target.value })}
-                    className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                    required
-                  />
-                </div>
-              </div>
+      {/* Import Job Posting Modal */}
+      <Dialog
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        title="Import Job Posting"
+        description="Provide posting details or a portal URL. Content will be sanitized through the ingestion pipeline."
+        maxWidth="max-w-xl"
+      >
+        <form onSubmit={handleImportSubmit} className="space-y-4 mt-2">
+          {importError && (
+            <div className="p-3 rounded-md bg-err-subtle text-err text-xs border border-err/20">
+              {importError}
+            </div>
+          )}
 
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                  Source Application URL
-                </label>
-                <input
-                  type="url"
-                  value={importForm.source_url}
-                  onChange={(e) => setImportForm({ ...importForm, source_url: e.target.value })}
-                  className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                  required
-                />
-              </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text">Job Title</label>
+            <input
+              required
+              value={importForm.title}
+              onChange={(e) => setImportForm({ ...importForm, title: e.target.value })}
+              className="app-input"
+              placeholder="e.g. Senior Software Engineer"
+            />
+          </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                  Raw Description / HTML
-                </label>
-                <textarea
-                  value={importForm.raw_description}
-                  onChange={(e) => setImportForm({ ...importForm, raw_description: e.target.value })}
-                  className="w-full h-28 p-2.5 rounded-apple-sm text-xs font-mono border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                  required
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text">Company Name</label>
+              <input
+                required
+                value={importForm.company_name}
+                onChange={(e) => setImportForm({ ...importForm, company_name: e.target.value })}
+                className="app-input"
+                placeholder="e.g. Mock Acme Corp"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text">Portal Key</label>
+              <input
+                required
+                value={importForm.portal_key}
+                onChange={(e) => setImportForm({ ...importForm, portal_key: e.target.value })}
+                className="app-input"
+                placeholder="e.g. mock_hostile"
+              />
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                    Minimum Degree
-                  </label>
-                  <select
-                    value={importForm.min_degree}
-                    onChange={(e) => setImportForm({ ...importForm, min_degree: e.target.value })}
-                    className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                  >
-                    <option value="BACHELOR">Bachelor's Degree</option>
-                    <option value="MASTER">Master's Degree</option>
-                    <option value="DOCTORATE">Doctorate / PhD</option>
-                    <option value="DIPLOMA">Diploma</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                    Min Experience (Months)
-                  </label>
-                  <input
-                    type="number"
-                    value={importForm.min_experience_months}
-                    onChange={(e) => setImportForm({ ...importForm, min_experience_months: Number(e.target.value) })}
-                    className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                  />
-                </div>
-              </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text">Source URL</label>
+            <input
+              required
+              value={importForm.source_url}
+              onChange={(e) => setImportForm({ ...importForm, source_url: e.target.value })}
+              className="app-input font-mono text-xs"
+              placeholder="https://..."
+            />
+          </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                  Required Skills (comma separated)
-                </label>
-                <input
-                  type="text"
-                  value={importForm.required_skills}
-                  onChange={(e) => setImportForm({ ...importForm, required_skills: e.target.value })}
-                  className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                />
-              </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text">Required Skills (comma separated)</label>
+            <input
+              value={importForm.required_skills}
+              onChange={(e) => setImportForm({ ...importForm, required_skills: e.target.value })}
+              className="app-input"
+              placeholder="Python, React, SQL..."
+            />
+          </div>
 
-              <div className="flex justify-end gap-2 pt-3">
-                <Button variant="secondary" size="sm" type="button" onClick={() => setShowImportModal(false)}>
-                  Cancel
-                </Button>
-                <Button variant="primary" size="sm" type="submit" loading={importing}>
-                  Sanitize & Import
-                </Button>
-              </div>
-            </form>
-          </Card>
-          </motion.div>
-        </motion.div>
-      )}
-      </AnimatePresence>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text">Job Description</label>
+            <textarea
+              rows={4}
+              value={importForm.raw_description}
+              onChange={(e) => setImportForm({ ...importForm, raw_description: e.target.value })}
+              className="app-input resize-none"
+              placeholder="Paste raw description..."
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowImportModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={importing}
+            >
+              Sanitize & Import
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   )
 }
