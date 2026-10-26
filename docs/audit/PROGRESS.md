@@ -20,7 +20,7 @@
 | **M9** | Eligibility Gates & Explainable Scoring | **COMPLETED** | 181 / 181 | `d536629` |
 | **M10** | Job-Specific Resume Generation & Grounding | **COMPLETED** | 189 / 189 | `af3e280` |
 | **M11** | Cover Letters with Provenance Grounding | **COMPLETED** | 197 / 197 | `1fdcd0f` |
-| **M12** | Application Planning & Manual Handoff | **COMPLETED** | 201 / 201 | `[pending]` |
+| **M12** | Application Planning & Manual Handoff | **COMPLETED** | 201 / 201 | `8042804` |
 | **M13** | External Authenticated-Session Workflow | **IN PROGRESS** | - | - |
 | **M14** | Validation, Approval & Submission Pipeline | **PENDING** | - | - |
 | **M15** | Dashboard & Settings Integration (Honest Greetings) | **PENDING** | - | - |
@@ -334,8 +334,36 @@
 - **Scope**:
   - Controlled browser session management for external ATS/employer portals requiring authentication.
   - State machine transitions `RESUME_GENERATED` / `READY_FOR_REVIEW` -> `PAUSED_AUTH` upon encountering login/credential walls.
-  - Candidate-supervised login assistance or secure local credential storage with encryption at rest.
-  - Post-login session resumption with anti-tamper form re-inspection.
+  - Candidate-supervised login assistance and secure encrypted credential vault with Fernet symmetric cipher.
+  - Post-login session resumption with anti-tamper form re-inspection against `FormSnapshotDB.dom_hash`.
+- **Implemented & Verified**:
+  - `src/jovsi/services/portal_auth.py`:
+    - PBKDF2-derived Fernet symmetric encryption ciphers using `settings.SECRET_KEY` and candidate-specific salt.
+    - `pause_for_authentication`: Transitions state to `PAUSED_AUTH`, records `paused_from_state` in state machine context, records `PORTAL_AUTH_REQUIRED` event.
+    - `resume_from_authentication`: Anti-tamper re-verification against `FormSnapshotDB.dom_hash`. Rejects structural changes with `TamperDetectedError` (HTTP 409). Restores application state to `paused_from_state` and records `PORTAL_AUTH_RESOLVED`.
+  - `src/jovsi/api/routers/applications.py`:
+    - `POST /api/v1/applications/{app_id}/portal-auth/pause`: Pauses application into `PAUSED_AUTH`.
+    - `POST /api/v1/applications/{app_id}/portal-auth/resume`: Resumes application from `PAUSED_AUTH` with anti-tamper check.
+  - `web/src/screens/ApplicationReviewScreen.tsx`:
+    - Prominent authentication alert banner rendered when `app.state === 'PAUSED_AUTH'`.
+    - "Open Sign-In Page" and "I Have Signed In — Resume" actions.
+  - `tests/unit/test_portal_authenticated_session.py`:
+    - Full test suite covering pause, anti-tamper mismatch rejection, safe resumption, and symmetric vault credential encryption/decryption.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 204 passed, 0 failed in 37.08s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.12s.
+- **Definition of Done for M13**: Controlled portal authentication session lifecycle, state transition to `PAUSED_AUTH`, anti-tamper re-inspection upon resumption, encrypted credential handling, and UI alert banner fully verified.
+
+---
+
+### Milestone 14: Validation, Approval & Submission Pipeline
+- **Status**: IN PROGRESS
+- **Scope**:
+  - 15-Point Hard Validation Gate (§7.11): package hash consistency, candidate facts backing, daily caps check, URL allowlist check, deadline check, work authorization, unmapped fields check, email/phone format, etc.
+  - Supervised Approval Gate (§7.12): Single-use cryptographic approval token (`ApprovalDB`), expiring window (15m), package hash signature binding.
+  - Submission Submitter against Hostile Mock Portal: automated submission against `mock_portal` (handling network drops, layout drifts, anti-tamper re-verification, E2/E3 evidence capture, HMAC request signing).
+  - State machine transitions: `READY_FOR_REVIEW` -> `APPROVED` -> `SUBMISSION_IN_PROGRESS` -> `APPLIED_CONFIRMED` / `SUBMISSION_UNCERTAIN` / `APPLICATION_FAILED`.
+
 
 
 

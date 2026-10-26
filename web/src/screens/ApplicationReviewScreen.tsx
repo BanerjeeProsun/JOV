@@ -58,6 +58,29 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
   const [savingFields, setSavingFields] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [markingManual, setMarkingManual] = useState(false)
+  const [resumingAuth, setResumingAuth] = useState(false)
+
+  const handleResumeAuth = async () => {
+    setResumingAuth(true)
+    setError(null)
+    try {
+      const resp = await fetch(`/api/v1/applications/${applicationId}/portal-auth/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}))
+        throw new Error(d.detail || 'Failed to resume application.')
+      }
+      setFeedback('Portal authentication verified! Application workflow resumed.')
+      await loadApplication()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setResumingAuth(false)
+    }
+  }
 
   const loadApplication = async () => {
     setLoading(true)
@@ -329,6 +352,42 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
           <button onClick={() => setError(null)} className="p-1 hover:opacity-70">
             ×
           </button>
+        </div>
+      )}
+
+      {/* Portal Authentication Required Banner */}
+      {app?.state === 'PAUSED_AUTH' && (
+        <div className="p-5 border border-border/80 rounded-2xl bg-bg-elev-1/80 space-y-3 shadow-1">
+          <div className="flex items-center gap-2.5 font-semibold text-text text-sm">
+            <Lock className="w-4 h-4 text-text-2" />
+            <span>Employer Portal Authentication Required</span>
+          </div>
+          <p className="text-xs text-text-2 leading-relaxed">
+            The employer portal for <span className="font-semibold text-text">{companyName}</span> requires candidate authentication (SSO, 2FA, or login session).
+            Please sign in on their external website, then resume your application.
+          </p>
+          <div className="flex items-center gap-3 pt-1">
+            {app?.job?.canonical_url && (
+              <a
+                href={app.job.canonical_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-text-2" />
+                <span>Open Sign-In Page</span>
+              </a>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              loading={resumingAuth}
+              onClick={handleResumeAuth}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>I Have Signed In — Resume</span>
+            </Button>
+          </div>
         </div>
       )}
 

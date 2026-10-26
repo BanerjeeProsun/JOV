@@ -221,26 +221,21 @@
       - "Regenerate" button for re-synthesizing tailored letters.
       - "Save & Validate" action displaying inline violation callouts on validation failure.
 
-## Decision 015: Application Planning, Form Field Grounding & Manual Handoff Package
+## Decision 016: External Portal Authenticated-Session Workflow & Anti-Tamper Re-Inspection
 - **Date**: 2026-10-26
 - **Status**: Accepted
-- **Context**: Recovery brief §7.8 & §7.9 mandate application planning (mapping form fields, questions, and sensitivity from verified candidate facts) and an exportable application handoff package for external/unsupported employer portals (Workday, Taleo, direct portals, or candidate manual submission preference).
+- **Context**: Recovery brief §7.10 mandates controlled session management for external ATS/employer portals requiring authentication (e.g. Workday, Lever, direct employer portals). When automation encounters a login or authentication barrier, the application state machine must pause into `PAUSED_AUTH`, safely preserving the pre-pause state, while never logging or persisting plaintext candidate credentials. Resuming from authentication must perform anti-tamper verification against the original form structure before any automated interaction can resume.
 - **Decision**:
-  - Implemented `ApplicationPlanningService` in `src/jovsi/services/planning.py`:
-    - Maps candidate facts to 11 standard portal fields (`full_name`, `email`, `phone`, `location`, `experience_years`, `work_auth`, `sponsorship`, `linkedin_url`, `github_url`, `portfolio_url`, `legal_attestation`).
-    - Detects unmapped required fields (`has_unresolved_required_fields`) to prevent auto-fill hallucination.
-    - `build_handoff_package_zip`: Constructs an in-memory ZIP package containing `README.txt`, tailored resume (PDF + DOCX), tailored cover letter (PDF + DOCX + TXT), `field_answers.json`, and `application_cheat_sheet.txt`.
-  - Added Planning & Manual Handoff Endpoints in `src/jovsi/api/routers/applications.py`:
-    - `POST /api/v1/applications/{app_id}/plan`: Maps candidate facts to fields, stores snapshot in `FormSnapshotDB` and pre-filled answers in `FieldAnswerDB`.
-    - `GET /api/v1/applications/{app_id}/fields`: Returns list of mapped form inputs with fact provenance badges and completion status.
-    - `PUT /api/v1/applications/{app_id}/fields`: Updates form field answers, marking source as `APPROVED_ANSWER`.
-    - `GET /api/v1/applications/{app_id}/package`: Returns full JSON manifest with cryptographic package hash.
-    - `GET /api/v1/applications/{app_id}/package.zip`: Streams downloadable ZIP archive kit.
-    - `POST /api/v1/applications/{app_id}/mark-submitted-manual`: Transitions application state to `MANUAL_HANDOFF`, records immutable `EventDB` audit entry.
-  - State Machine Integration:
-    - Updated `src/jovsi/domain/state_machine.py` to allow legal transitions to `MANUAL_HANDOFF` from `READY_FOR_REVIEW` and `RESUME_GENERATED` upon manual handoff export or portal restrictions.
+  - Implemented `PortalAuthService` in `src/jovsi/services/portal_auth.py`:
+    - Derives symmetric Fernet encryption ciphers using PBKDF2-HMAC-SHA256 from `settings.SECRET_KEY` and candidate-specific salt, enabling secure encryption-at-rest for optional portal vault credentials (`encrypt_portal_credential`, `decrypt_portal_credential`).
+    - `pause_for_authentication`: Transitions application state to `PAUSED_AUTH`, records `paused_from_state` in the application state context, and appends an immutable `PORTAL_AUTH_REQUIRED` audit event with reason and portal login URL.
+    - `resume_from_authentication`: Re-inspects candidate portal form against the existing `FormSnapshotDB.dom_hash`. Detects DOM structure tampering or layout drift; raises `TamperDetectedError` (HTTP 409) if the form skeleton was altered while paused. Resumes application back to `paused_from_state` (or `READY_FOR_REVIEW`) and logs `PORTAL_AUTH_RESOLVED`.
+  - Added Portal Authentication API Endpoints in `src/jovsi/api/routers/applications.py`:
+    - `POST /api/v1/applications/{app_id}/portal-auth/pause`: Pauses application into `PAUSED_AUTH` and returns login instructions.
+    - `POST /api/v1/applications/{app_id}/portal-auth/resume`: Resumes application from `PAUSED_AUTH` after anti-tamper verification.
   - Frontend Integration:
-    - Replaced hardcoded form fields placeholder in `ApplicationReviewScreen.tsx` (`FIELDS` tab) with live interactive fields, provenance badges ("VERIFIED FACT" / "APPROVED ANSWER"), 1-click clipboard copy per field with visual confirmation, "Download Kit (.zip)" button, direct "Open Portal" link, and "Mark Applied" action.
+    - Updated `ApplicationReviewScreen.tsx` to render an actionable authentication alert banner when `app.state === 'PAUSED_AUTH'`, offering "Open Sign-In Page" (direct link) and "I Have Signed In — Resume" buttons.
+
 
 
 

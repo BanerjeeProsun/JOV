@@ -38,6 +38,7 @@ from jovsi.domain.gate import GateSnapshot, ValidationGate
 from jovsi.services.application_service import ApplicationService
 from jovsi.services.resume import ResumeService
 from jovsi.services.planning import ApplicationPlanningService, STANDARD_PORTAL_FIELDS
+from jovsi.services.portal_auth import PortalAuthService
 from jovsi.services.submission import ApprovalService, SubmissionService, ReconciliationService
 from jovsi.adapters.portals.base import FieldMappingEntry, FieldMappingPlan
 
@@ -1262,6 +1263,71 @@ def mark_application_manually_submitted(
         "state": ApplicationState.MANUAL_HANDOFF.value,
         "message": "Application marked as manually submitted.",
     }
+
+
+class PortalAuthResumeRequest(BaseModel):
+    new_skeleton_hash: Optional[str] = None
+
+
+@router.post("/applications/{app_id}/portal-auth/pause")
+def pause_for_portal_auth(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Pauses application workflow when external portal login/SSO/2FA is required."""
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
+    updated_app = PortalAuthService.pause_for_authentication(
+        db=db,
+        application_id=app_id,
+        reason="External employer portal requires user sign-in/SSO",
+        actor="CANDIDATE" if current_user else "SYSTEM",
+    )
+    return {
+        "status": "paused",
+        "state": updated_app.state,
+        "paused_from_state": updated_app.paused_from_state,
+        "login_url": job.canonical_url if job else None,
+        "message": "Application workflow paused. Please sign in to the employer portal.",
+    }
+
+
+@router.post("/applications/{app_id}/portal-auth/resume")
+def resume_from_portal_auth(
+    app_id: str,
+    data: Optional[PortalAuthResumeRequest] = None,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Resumes application workflow after user completes external portal authentication."""
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    new_hash = data.new_skeleton_hash if data else None
+    try:
+        updated_app, tamper_verified = PortalAuthService.resume_from_authentication(
+            db=db,
+            application_id=app_id,
+            new_skeleton_hash=new_hash,
+            actor="CANDIDATE" if current_user else "SYSTEM",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "status": "resumed",
+        "state": updated_app.state,
+        "tamper_verified": tamper_verified,
+        "message": "Portal session active. Application workflow resumed.",
+    }
+
 
 
 
