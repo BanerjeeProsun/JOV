@@ -61,72 +61,65 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
       </div>
 
       {/* Hero Section — Unboxed Asymmetric Cinematic Composition */}
-      <section className="relative w-full overflow-hidden pt-4 pb-12 lg:py-14">
-        {/* Ambient pearl light pool behind hero */}
+      <section className="relative w-full overflow-hidden min-h-[520px] sm:min-h-[580px] lg:min-h-[620px] flex items-center py-10 sm:py-14 lg:py-16">
+        {/* Absolute Composited Hero Video Layer */}
         <div
-          className="absolute -top-24 -left-20 w-[600px] h-[600px] rounded-full pointer-events-none opacity-40 blur-[90px]"
-          style={{
-            background: 'radial-gradient(circle, var(--pearl-1) 0%, var(--pearl-2) 35%, var(--pearl-3) 60%, transparent 75%)',
-          }}
-        />
+          className="hero-video-layer absolute inset-y-0 right-0 w-full sm:w-[85%] md:w-[74%] lg:w-[65%] max-w-[1100px] h-full pointer-events-none select-none z-0"
+          aria-hidden="true"
+        >
+          <HeroVideo className="w-full h-full opacity-40 sm:opacity-80 lg:opacity-100 transition-opacity duration-500" />
+        </div>
 
-        <div className="relative grid items-center gap-10 lg:grid-cols-12">
-          {/* Left Hero Typographic Content & Primary Actions */}
-          <div className="relative z-10 lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-bg-elev-1 text-[11px] font-medium tracking-wide uppercase text-text-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-              <span>{hasResume ? 'Candidate Workspace' : 'Scattered → Clarity'}</span>
-            </div>
-
-            <div>
-              {hasResume ? (
-                <h1 className="text-[clamp(2.5rem,5.5vw,4.75rem)] font-semibold tracking-tighter leading-[0.98] text-text">
-                  Welcome back,{' '}
-                  <span className="font-editorial italic font-normal text-text">
-                    {candidate?.display_name || 'Candidate'}.
-                  </span>
-                </h1>
-              ) : (
-                <SplitText
-                  text="Your next role, in focus."
-                  accentWords={['focus.']}
-                  className="text-[clamp(2.75rem,6.5vw,5.25rem)] font-semibold tracking-tighter leading-[0.96] text-text"
-                />
-              )}
-            </div>
-
-            <p className="page-intro max-w-xl text-text-2 text-[16px] leading-relaxed">
-              {hasResume
-                ? 'A calm, accurate view of your applications. Every proposition is derived from your verified records with strict provenance.'
-                : 'Turn a noisy search into an aligned, finished application. Your master resume generates factual, tailored packages gated by strict provenance verification.'}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              <Magnetic strength={8}>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={() => onNavigate(hasResume ? 'jobs' : 'profile')}
-                  className="shadow-float"
-                >
-                  {hasResume ? <Search className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                  <span>{hasResume ? 'Discover opportunities' : 'Import your resume'}</span>
-                </Button>
-              </Magnetic>
-
-              <button
-                onClick={() => onNavigate(hasResume ? 'queue' : 'profile')}
-                className="inline-flex items-center gap-2 px-4 py-3 text-[14px] font-medium text-text-2 hover:text-text transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-full"
-              >
-                <span>{hasResume ? 'Open application queue' : 'Explore candidate graph'}</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            </div>
+        {/* Left Hero Typographic Content & Primary Actions */}
+        <div className="relative z-10 max-w-xl lg:max-w-2xl space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-bg-elev-1 text-[11px] font-medium tracking-wide uppercase text-text-3 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-ok" />
+            <span>{hasResume ? 'Candidate Workspace' : 'Scattered → Clarity'}</span>
           </div>
 
-          {/* Right Hero Visual: Real Local Hero Video Asset Seamlessly Blended */}
-          <div className="relative lg:col-span-5 w-full flex items-center justify-center">
-            <HeroVideo className="w-full" />
+          <div className="overflow-visible pr-2">
+            {hasResume ? (
+              <h1 className="text-[clamp(2.5rem,5.5vw,4.5rem)] font-semibold tracking-tight leading-[1.02] text-text">
+                Welcome back,{' '}
+                <span className="font-editorial italic font-normal text-text inline-block pr-1">
+                  {candidate?.display_name || 'Candidate'}.
+                </span>
+              </h1>
+            ) : (
+              <SplitText
+                text="Your next role, in focus."
+                accentWords={['focus.']}
+                className="text-[clamp(2.75rem,6.5vw,5rem)] font-semibold tracking-tight leading-[1.0] text-text"
+              />
+            )}
+          </div>
+
+          <p className="page-intro max-w-lg lg:max-w-xl text-text-2 text-[15px] sm:text-[16px] leading-relaxed">
+            {hasResume
+              ? 'A calm, accurate view of your applications. Every proposition is derived from your verified records with strict provenance.'
+              : 'Turn a noisy search into an aligned, finished application. Your master resume generates factual, tailored packages gated by strict provenance verification.'}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-4 pt-2">
+            <Magnetic strength={8}>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => onNavigate(hasResume ? 'jobs' : 'profile')}
+                className="shadow-float"
+              >
+                {hasResume ? <Search className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                <span>{hasResume ? 'Discover opportunities' : 'Import your resume'}</span>
+              </Button>
+            </Magnetic>
+
+            <button
+              onClick={() => onNavigate(hasResume ? 'queue' : 'profile')}
+              className="inline-flex items-center gap-2 px-4 py-3 text-[14px] font-medium text-text-2 hover:text-text transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-full"
+            >
+              <span>{hasResume ? 'Open application queue' : 'Explore candidate graph'}</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </button>
           </div>
         </div>
       </section>

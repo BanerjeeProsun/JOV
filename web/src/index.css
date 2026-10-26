@@ -52,7 +52,19 @@ button, input, select, textarea {
   .screen-page {
     max-width: 1240px;
     margin: 0 auto;
-    padding: 96px 24px 100px;
+    padding: 24px 20px 80px;
+  }
+
+  @media (min-width: 640px) {
+    .screen-page {
+      padding: 36px 32px 96px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .screen-page {
+      padding: 44px 40px 100px;
+    }
   }
 
   .page-kicker {
