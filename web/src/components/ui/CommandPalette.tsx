@@ -13,9 +13,12 @@ import {
   Sun,
   Moon,
   FileUp,
+  LogIn,
+  LogOut,
 } from 'lucide-react'
 import { modalVariants, spring } from '../../design/motion'
 import { useTheme } from '../ThemeProvider'
+import { useAuth } from '../../context/AuthContext'
 import type { TabId } from '../layout/FloatingNav'
 
 export interface CommandAction {
@@ -43,6 +46,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const inputRef = useRef<HTMLInputElement>(null)
   const reducedMotion = useReducedMotion()
   const { resolvedTheme, toggleTheme } = useTheme()
+  const { user, isAuthenticated, openAuthModal, logout } = useAuth()
 
   const allActions: CommandAction[] = useMemo(
     () => [
@@ -94,6 +98,34 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         category: 'Actions',
         run: () => onNavigate('profile'),
       },
+      ...(isAuthenticated
+        ? [
+            {
+              id: 'action-logout',
+              label: 'Sign Out',
+              hint: `Sign out of ${user?.email || 'account'}`,
+              icon: LogOut,
+              category: 'Actions' as const,
+              run: async () => {
+                await logout()
+                onNavigate('overview')
+                onClose()
+              },
+            },
+          ]
+        : [
+            {
+              id: 'action-login',
+              label: 'Sign In / Register',
+              hint: 'Sign in to access your private workspace',
+              icon: LogIn,
+              category: 'Actions' as const,
+              run: () => {
+                openAuthModal()
+                onClose()
+              },
+            },
+          ]),
       {
         id: 'action-theme',
         label: `Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`,
@@ -119,7 +151,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         run: () => onNavigate('diagnostics'),
       },
     ],
-    [onNavigate, resolvedTheme, toggleTheme]
+    [onNavigate, resolvedTheme, toggleTheme, isAuthenticated, user, logout, openAuthModal, onClose]
   )
 
   const filtered = useMemo(() => {

@@ -10,6 +10,7 @@ import {
   Sun,
   Search,
   LogIn,
+  LogOut,
   Lock,
 } from 'lucide-react'
 import { motion, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
@@ -50,7 +51,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
   isModalOpen = false,
   className = '',
 }) => {
-  const { user, isAuthenticated, isSandboxMode, openAuthModal } = useAuth()
+  const { user, isAuthenticated, isSandboxMode, openAuthModal, logout } = useAuth()
   const hasFullAccess = isAuthenticated || isSandboxMode
   const { resolvedTheme, toggleTheme } = useTheme()
   const reducedMotion = useReducedMotion()
@@ -115,6 +116,11 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
       return
     }
     onSelectTab(tabId)
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    onSelectTab('overview')
   }
 
   return (
@@ -220,14 +226,26 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
             <div className="h-4 w-[1px] bg-border mx-0.5" />
 
             {isAuthenticated ? (
-              <button
-                onClick={() => onSelectTab('settings')}
-                title={user?.display_name ? `${user.display_name} (${user.email})` : user?.email}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium text-text bg-selected/70 border border-border/80 hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span className="max-w-[72px] truncate">{user?.display_name || user?.email?.split('@')[0] || 'Account'}</span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onSelectTab('settings')}
+                  title={user?.display_name ? `${user.display_name} (${user.email}) — Click for Settings` : `${user?.email} — Click for Settings`}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium text-text bg-selected/70 border border-border/80 hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="max-w-[72px] truncate">{user?.display_name || user?.email?.split('@')[0] || 'Account'}</span>
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  aria-label="Sign out"
+                  title="Sign out of account"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium text-text-3 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline text-[11px]">Sign Out</span>
+                </button>
+              </div>
             ) : (
               <button
                 onClick={openAuthModal}
@@ -280,6 +298,19 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
               </button>
             )
           })}
+
+          {isAuthenticated && (
+            <button
+              onClick={handleLogout}
+              aria-label="Sign out"
+              title="Sign out of account"
+              className="p-2 text-text-3 hover:text-text cursor-pointer flex flex-col items-center justify-center rounded-full text-xs"
+            >
+              <LogOut className="w-4 h-4" strokeWidth={1.5} />
+              <span className="sr-only">Sign Out</span>
+            </button>
+          )}
+
           <button
             onClick={(e) => toggleTheme(e)}
             aria-label="Toggle theme"

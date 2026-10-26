@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Clock,
   LogIn,
+  LogOut,
   FileCheck2,
   Sparkles,
   Lock,
@@ -27,7 +28,7 @@ interface OverviewScreenProps {
 }
 
 export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) => {
-  const { user, isAuthenticated, isSandboxMode, openAuthModal } = useAuth()
+  const { user, isAuthenticated, isSandboxMode, openAuthModal, logout } = useAuth()
   const hasFullAccess = isAuthenticated || isSandboxMode
 
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null)
@@ -195,15 +196,29 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
               </h2>
             </div>
 
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={refresh}
-              loading={loading}
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh data</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={refresh}
+                loading={loading}
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh data</span>
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await logout()
+                }}
+                className="text-text-3 hover:text-text cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </Button>
+            </div>
           </div>
 
           {/* Unboxed Architectural Layout: Metric Showcase + Row Pipeline */}

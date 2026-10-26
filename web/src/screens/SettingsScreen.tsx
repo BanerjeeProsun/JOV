@@ -204,6 +204,17 @@ export const SettingsScreen: React.FC = () => {
             <RefreshCw className="w-4 h-4" />
             <span>Reload</span>
           </Button>
+          {isAuthenticated && (
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={logout}
+              className="text-text-3 hover:text-text cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
+            </Button>
+          )}
         </div>
       </div>
 

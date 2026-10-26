@@ -127,6 +127,15 @@ async def test_unauthenticated_landing_and_auth_gate(mock_server, tmp_path) -> N
         await page.click("button:has-text('Profile')")
         await page.wait_for_selector("text=Candidate Profile & Fact Graph")
 
+        # Step E: Verify Sign Out option is accessible and returns to Product Showcase
+        sign_out_btn = page.locator("button:has-text('Sign Out')").first
+        await sign_out_btn.wait_for()
+        await sign_out_btn.click()
+
+        # Should return to public Product Showcase with sign in CTA
+        await page.wait_for_selector("text=Master-Resume Fact Provenance")
+        await page.wait_for_selector("button:has-text('Sign In or Create Account')")
+
         await context.close()
         await browser.close()
 
