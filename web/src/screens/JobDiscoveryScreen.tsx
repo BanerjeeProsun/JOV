@@ -3,7 +3,7 @@ import { AnimatePresence, motion, LayoutGroup } from 'motion/react'
 import { Button } from '../components/ui/Button'
 import { Dialog } from '../components/ui/Dialog'
 import { api } from '../api/client'
-import type { Candidate, Job } from '../types'
+import type { Candidate, Job, JobSource } from '../types'
 import {
   Briefcase,
   Search,
@@ -28,6 +28,7 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   onNavigateToQueue,
 }) => {
   const [jobs, setJobs] = useState<Job[]>([])
+  const [sources, setSources] = useState<JobSource[]>([])
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null)
   const [loading, setLoading] = useState(true)
   const [discovering, setDiscovering] = useState(false)
@@ -56,12 +57,14 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   const loadData = async () => {
     setLoading(true)
     try {
-      const [cand, jobsData] = await Promise.all([
+      const [cand, jobsData, sourcesData] = await Promise.all([
         api.getActiveCandidate(),
         api.getJobs(),
+        api.getJobSources().catch(() => []),
       ])
       setActiveCandidate(cand)
       setJobs(jobsData)
+      setSources(sourcesData)
       if (jobsData.length > 0 && !selectedJobId) {
         setSelectedJobId(jobsData[0].id)
       }
@@ -209,6 +212,26 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
             <X className="w-4 h-4" />
           </button>
         </motion.div>
+      )}
+
+      {/* Active Source Indicators */}
+      {sources.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-text-3 mr-1">Live Feeds:</span>
+          {sources.map((src) => (
+            <div
+              key={src.id}
+              title={src.description}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-border/70 bg-bg-elev-1/40 text-text-2"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${src.is_live ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span className="font-sans font-medium text-text">{src.name.split(' ')[0]}</span>
+              {src.employer_count ? (
+                <span className="text-[10px] text-text-3 font-mono">({src.employer_count})</span>
+              ) : null}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Search Toolbar */}

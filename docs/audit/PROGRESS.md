@@ -12,9 +12,9 @@
 | **M1** | Strict Authentication, Identity & Isolation | **COMPLETED** | 124 / 124 | `753f0cf` |
 | **M2** | Configuration, Secrets Hygiene, LLM Provider | **COMPLETED** | 133 / 133 | `7732d7d` |
 | **M3** | Zombie-Code Removal & Mock Isolation | **COMPLETED** | 133 / 133 | `b7feb30` |
-| **M4** | Master-Resume Ingestion & Profile Verification | **COMPLETED** | 133 / 133 | Pending |
-| **M5** | Source Registry & Real ATS Connectors | **IN PROGRESS** | - | - |
-| **M6** | Normalized Schema, Geo Dataset & Parser | **PENDING** | - | - |
+| **M4** | Master-Resume Ingestion & Profile Verification | **COMPLETED** | 133 / 133 | `d04e4ab` |
+| **M5** | Source Registry & Real ATS Connectors | **COMPLETED** | 137 / 137 | `[commit-hash]` |
+| **M6** | Normalized Schema, Geo Dataset & Parser | **IN PROGRESS** | - | - |
 | **M7** | Search & Filters: Facets, URL State & UI Wiring | **PENDING** | - | - |
 | **M8** | Aggregator/Feed Connectors & Manual Import | **PENDING** | - | - |
 | **M9** | Eligibility Gates & Explainable Scoring | **PENDING** | - | - |
@@ -148,3 +148,23 @@
   - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 892ms.
   - `cd web; npm run lint` -> 28 warnings, 0 errors.
 - **Definition of Done for M4**: Upload, extraction, provenance grounding, and candidate fact confirmation fully verified end-to-end across backend and frontend.
+
+---
+
+### Milestone 5: Source Registry & Real ATS Connectors
+- **Scope**: Replace hardcoded/mock job sources with real database-backed registry (`JobSourceDB`), dynamic prober, real Ashby and SmartRecruiters connectors alongside Greenhouse, default employer seeds, API endpoints, and live UI indicators.
+- **Implemented & Verified**:
+  - `src/jovsi/adapters/db/models.py`: Added `JobSourceDB` model (`job_sources` table) tracking provider, employer, slug, status (`verified_active`, `failing`, `empty`, `unprobed`), posting counts, timestamps, error messages.
+  - `src/jovsi/services/job_discovery.py`:
+    - Implemented `AshbyConnector` using Ashby public job board API (`https://api.ashbyhq.com/posting-api/job-board/{board_name}`).
+    - Implemented `SmartRecruitersConnector` using SmartRecruiters postings API (`https://api.smartrecruiters.com/v1/companies/{company}/postings`).
+    - Implemented `SourceRegistryService` with dynamic probing (`probe_source`), DB sync, and aggregated status reporting.
+  - `src/jovsi/adapters/db/session.py`: Auto-seeds default known employers (Cloudflare, Figma, Stripe, Canonical, Palantir, Ramp, Linear, Visa, McDonald's) on DB init.
+  - `src/jovsi/api/routers/jobs.py`: Added `/api/v1/jobs/sources` (aggregates DB sources), `/api/v1/jobs/sources/employers`, and `/api/v1/jobs/sources/{id}/probe`.
+  - `web/src/screens/JobDiscoveryScreen.tsx`: Wired live feed indicator pills displaying active employers and live posting counts per provider.
+  - `tests/integration/test_source_registry.py`: 4 integration tests verifying ATS connectors and dynamic registry probing.
+  - `docs/audit/DECISIONS.md`: Recorded Decision 008 (Real ATS Connectors & Dynamic Source Registry Architecture).
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 137 passed, 0 failed in 32.08s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.05s.
+- **Definition of Done for M5**: Multi-ATS connector architecture, real DB source registry, dynamic prober, and live UI status indicators operational.

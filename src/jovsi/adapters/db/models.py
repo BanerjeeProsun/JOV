@@ -375,3 +375,22 @@ class UserSettingsDB(Base):
     allow_real_submission: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class JobSourceDB(Base):
+    __tablename__ = "job_sources"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    employer_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    board_identifier: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="untested", nullable=False)
+    last_probed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_job_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("idx_job_sources_provider_board", "provider", "board_identifier", unique=True),
+    )

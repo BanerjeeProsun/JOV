@@ -1,5 +1,6 @@
 """Job Ingestion and Discovery API Router."""
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -7,12 +8,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from jovsi.adapters.db.session import get_db
-from jovsi.adapters.db.models import CandidateDB, FactDB, JobDB, UserDB
+from jovsi.adapters.db.models import CandidateDB, FactDB, JobDB, JobSourceDB, UserDB
 from jovsi.api.dependencies import get_optional_current_user
 from jovsi.adapters.sanitizer import UntrustedInputSanitizer
 from jovsi.api.schemas import JobImportRequest, JobResponse
 from jovsi.domain.models import DegreeLevel, Fact, FactKind, FactProvenance, FactStatus, Job, JobRequirements, JobStatus
-from jovsi.services.job_discovery import JobDiscoveryService
+from jovsi.services.job_discovery import JobDiscoveryService, SourceRegistryService
 
 
 
@@ -173,9 +174,109 @@ class DiscoverJobsResponse(BaseModel):
     jobs: List[DiscoveredJobItem]
 
 
+class EmployerSourceRequest(BaseModel):
+    provider: str
+    employer_name: str
+    board_identifier: str
+
+
+class EmployerSourceResponse(BaseModel):
+    id: str
+    provider: str
+    employer_name: str
+    board_identifier: str
+    status: str
+    last_job_count: int
+    last_probed_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+
+
 @router.get("/jobs/sources", response_model=List[Dict[str, Any]])
-def get_job_sources() -> List[Dict[str, Any]]:
-    return JobDiscoveryService.get_registered_sources()
+def get_job_sources(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    return JobDiscoveryService.get_registered_sources(db=db)
+
+
+@router.get("/jobs/sources/employers", response_model=List[EmployerSourceResponse])
+def list_employer_sources(
+    provider: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+) -> List[EmployerSourceResponse]:
+    stmt = select(JobSourceDB)
+    if provider:
+        stmt = stmt.where(JobSourceDB.provider == provider)
+    stmt = stmt.order_by(JobSourceDB.provider, JobSourceDB.employer_name)
+    rows = db.scalars(stmt).all()
+    return [
+        EmployerSourceResponse(
+            id=r.id,
+            provider=r.provider,
+            employer_name=r.employer_name,
+            board_identifier=r.board_identifier,
+            status=r.status,
+            last_job_count=r.last_job_count,
+            last_probed_at=r.last_probed_at,
+            last_error=r.last_error,
+        )
+        for r in rows
+    ]
+
+
+@router.post("/jobs/sources/employers", response_model=EmployerSourceResponse, status_code=status.HTTP_201_CREATED)
+def add_employer_source(
+    data: EmployerSourceRequest,
+    db: Session = Depends(get_db),
+) -> EmployerSourceResponse:
+    existing = db.scalar(
+        select(JobSourceDB).where(
+            JobSourceDB.provider == data.provider.lower().strip(),
+            JobSourceDB.board_identifier == data.board_identifier.lower().strip(),
+        )
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Employer board already registered")
+
+    new_src = JobSourceDB(
+        provider=data.provider.lower().strip(),
+        employer_name=data.employer_name.strip(),
+        board_identifier=data.board_identifier.lower().strip(),
+        status="untested",
+    )
+    db.add(new_src)
+    db.commit()
+    db.refresh(new_src)
+
+    probed = SourceRegistryService.probe_source(new_src.id, db)
+    return EmployerSourceResponse(
+        id=probed.id,
+        provider=probed.provider,
+        employer_name=probed.employer_name,
+        board_identifier=probed.board_identifier,
+        status=probed.status,
+        last_job_count=probed.last_job_count,
+        last_probed_at=probed.last_probed_at,
+        last_error=probed.last_error,
+    )
+
+
+@router.post("/jobs/sources/{source_id}/probe", response_model=EmployerSourceResponse)
+def probe_employer_source(
+    source_id: str,
+    db: Session = Depends(get_db),
+) -> EmployerSourceResponse:
+    try:
+        probed = SourceRegistryService.probe_source(source_id, db)
+        return EmployerSourceResponse(
+            id=probed.id,
+            provider=probed.provider,
+            employer_name=probed.employer_name,
+            board_identifier=probed.board_identifier,
+            status=probed.status,
+            last_job_count=probed.last_job_count,
+            last_probed_at=probed.last_probed_at,
+            last_error=probed.last_error,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/jobs/discover", response_model=DiscoverJobsResponse)

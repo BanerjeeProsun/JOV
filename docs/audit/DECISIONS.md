@@ -67,3 +67,15 @@
   - Connected `CandidateProfileScreen.tsx` to `api.confirmFact` and `api.confirmAllFacts`.
   - Added prominent proposed fact review banner displaying the number of pending facts with a one-click "Confirm All" verification button.
   - Added inline verification triggers on individual proposed facts (experience, education, and skills) so candidates can audit facts selectively before activation.
+
+## Decision 008: Source Registry, Database-Backed Employer Prober & ATS Connectors
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Connectors previously used hard-coded company lists and returned hard-coded fake `is_live: True` badges without checking real database records or actual connectivity.
+- **Decision**:
+  - Implemented `JobSourceDB` SQLite table (`job_sources`) storing provider, employer name, board identifier, live status, job counts, and probe errors.
+  - Added real public API connectors for Ashby (`https://api.ashbyhq.com/posting-api/job-board/{board}`) and SmartRecruiters (`https://api.smartrecruiters.com/v1/companies/{company}/postings`).
+  - Seeded initial real employers (Cloudflare, Stripe, Figma, Canonical, Palantir, Ramp, Linear, Visa, McDonald's) with automatic SQLite startup seeding.
+  - Implemented `SourceRegistryService.probe_source()` to execute real HTTP probing and dynamically assign statuses (`verified_active`, `failing`, `empty`).
+  - Added endpoints `/api/v1/jobs/sources/employers` and `/api/v1/jobs/sources/{id}/probe`.
+  - Wired live feed indicator pills into `JobDiscoveryScreen.tsx`.

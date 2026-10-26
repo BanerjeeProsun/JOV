@@ -209,6 +209,8 @@ export interface JobSource {
   status: string
   is_live: boolean
   description: string
+  employer_count?: number
+  provider?: string
 }
 
 export interface DiscoveredJob {
