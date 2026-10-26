@@ -10,9 +10,9 @@
 |---|---|---|---|---|
 | **M0** | Recon, Inventory, Recovery Plan | **COMPLETED** | 115 / 115 | `1b98d5c` |
 | **M1** | Strict Authentication, Identity & Isolation | **COMPLETED** | 124 / 124 | `753f0cf` |
-| **M2** | Configuration, Secrets Hygiene, LLM Provider | **COMPLETED** | 133 / 133 | Pending |
-| **M3** | Zombie-Code Removal & Mock Isolation | **IN PROGRESS** | - | - |
-| **M4** | Master-Resume Ingestion & Profile Verification | **PENDING** | - | - |
+| **M2** | Configuration, Secrets Hygiene, LLM Provider | **COMPLETED** | 133 / 133 | `7732d7d` |
+| **M3** | Zombie-Code Removal & Mock Isolation | **COMPLETED** | 133 / 133 | Pending |
+| **M4** | Master-Resume Ingestion & Profile Verification | **IN PROGRESS** | - | - |
 | **M5** | Source Registry & Real ATS Connectors | **PENDING** | - | - |
 | **M6** | Normalized Schema, Geo Dataset & Parser | **PENDING** | - | - |
 | **M7** | Search & Filters: Facets, URL State & UI Wiring | **PENDING** | - | - |
@@ -110,3 +110,23 @@
   - `.\.venv\Scripts\pytest.exe -v` -> 133 passed, 0 failed in 34.04s.
   - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.21s.
 - **Definition of Done for M2**: Secrets hygiene verified via tests, Gemini provider implemented with deterministic fallback, zero secret leakage in health checks or logs.
+
+---
+
+### Milestone 3: Zombie-Code Removal & Mock Isolation
+- **Scope**: Remove proved dead and redundant React components and obsolete re-exports, verify mock portal isolation, and ensure all tests continue passing.
+- **Removed Dead Components**:
+  - `web/src/components/Button.tsx`: Redundant re-export of `web/src/components/ui/Button.tsx`.
+  - `web/src/components/CommandPalette.tsx`: Redundant re-export; `web/src/App.tsx` updated to import directly from `web/src/components/ui/CommandPalette.tsx`.
+  - `web/src/components/Navbar.tsx`: Dead fixed navbar component superseded by `FloatingNav.tsx`.
+  - `web/src/components/Card.tsx`: Dead boxed card component superseded by unboxed design system.
+  - `web/src/components/AmbientBackdrop.tsx`: Dead canvas/SVG prototype.
+  - `web/src/components/BrandLogo.tsx`: Dead legacy logo superseded by `JLogo.tsx` and `Wordmark.tsx`.
+- **Mock Portal Isolation**:
+  - Verified `mock_portal` code is completely unimported by `src/` core domain, services, and adapters.
+  - Mock portal remains strictly isolated to integration tests and sandbox testing harnesses.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 133 passed, 0 failed in 34.78s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 894ms.
+  - `cd web; npm run lint` -> 28 warnings, 0 errors.
+- **Definition of Done for M3**: Dead components safely deleted with zero test breakage or frontend compile issues.
