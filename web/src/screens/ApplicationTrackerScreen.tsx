@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '../components/ui/Button'
-import { Drawer } from '../components/ui/Drawer'
 import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../api/client'
 import type { Application } from '../types'
@@ -11,13 +10,15 @@ import {
   RefreshCw,
   Building2,
   CheckCircle2,
+  FileCheck,
+  X,
 } from 'lucide-react'
 
 export const ApplicationTrackerScreen: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>([])
   const [selectedAppDetail, setSelectedAppDetail] = useState<Application | null>(null)
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [inspectLoading, setInspectLoading] = useState(false)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [resolveMessage, setResolveMessage] = useState<string | null>(null)
 
@@ -38,12 +39,14 @@ export const ApplicationTrackerScreen: React.FC = () => {
   }, [])
 
   const handleInspectDetail = async (appId: string) => {
+    setInspectLoading(true)
     try {
       const detail = await api.getApplication(appId)
       setSelectedAppDetail(detail)
-      setDrawerOpen(true)
     } catch (err: any) {
       console.error(err)
+    } finally {
+      setInspectLoading(false)
     }
   }
 
@@ -140,257 +143,296 @@ export const ApplicationTrackerScreen: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Confirmed Submissions Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-ok" />
-                <span>Confirmed Submissions ({confirmedApps.length})</span>
-              </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Applications Timeline */}
+          <div className={selectedAppDetail ? 'lg:col-span-7 space-y-6' : 'lg:col-span-12 space-y-6'}>
+            {/* Confirmed Submissions Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-ok" />
+                  <span>Confirmed Submissions ({confirmedApps.length})</span>
+                </h2>
+              </div>
+
+              {confirmedApps.length === 0 ? (
+                <div className="p-6 rounded-card border border-border bg-bg-elev-1 text-xs text-text-3 text-center">
+                  No confirmed applications yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {confirmedApps.map((app) => {
+                    const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
+                    const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
+                    const rawState = (app as any).state || app.current_state
+                    const isSelected = selectedAppDetail?.id === app.id
+
+                    return (
+                      <motion.div
+                        layout
+                        key={app.id}
+                        className={`p-6 rounded-card border transition-all ${
+                          isSelected
+                            ? 'border-text bg-bg-elev-2 ring-1 ring-border-strong'
+                            : 'border-border bg-bg-elev-1 hover:border-border-strong'
+                        } shadow-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
+                      >
+                        <div className="space-y-1.5 cursor-pointer" onClick={() => handleInspectDetail(app.id)}>
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-base font-semibold text-text tracking-tight">
+                              {roleTitle}
+                            </h3>
+                            <StatusBadge state={rawState} />
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-text-2 font-medium">
+                            <Building2 className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
+                            <span>{companyName}</span>
+                          </div>
+                          <div className="flex items-center gap-3 font-mono text-[11px] text-text-3 pt-1">
+                            <span>ID: {app.id.slice(0, 8)}</span>
+                            <span>·</span>
+                            <span>Level E2 Verified</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant={isSelected ? 'primary' : 'secondary'}
+                            size="sm"
+                            loading={inspectLoading && selectedAppDetail?.id === app.id}
+                            onClick={() => handleInspectDetail(app.id)}
+                          >
+                            <ShieldCheck className="w-4 h-4 text-ok" />
+                            <span>Evidence & Audit</span>
+                          </Button>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
-            {confirmedApps.length === 0 ? (
-              <div className="p-6 rounded-card border border-border bg-bg-elev-1 text-xs text-text-3 text-center">
-                No confirmed applications yet.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {confirmedApps.map((app) => {
-                  const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
-                  const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
-                  const rawState = (app as any).state || app.current_state
+            {/* Pending Submissions / Uncertain */}
+            {pendingApps.length > 0 && (
+              <div className="space-y-3 pt-4">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-warn" />
+                    <span>Pending Confirmation ({pendingApps.length})</span>
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {pendingApps.map((app) => {
+                    const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
+                    const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
+                    const rawState = (app as any).state || app.current_state
+                    const isUncertain = rawState === 'SUBMISSION_UNCERTAIN'
+                    const isSelected = selectedAppDetail?.id === app.id
 
-                  return (
-                    <motion.div
-                      layout
-                      key={app.id}
-                      className="p-6 rounded-card border border-border bg-bg-elev-1 shadow-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-base font-semibold text-text tracking-tight">
-                            {roleTitle}
-                          </h3>
-                          <StatusBadge state={rawState} />
+                    return (
+                      <div
+                        key={app.id}
+                        className={`p-6 rounded-card border transition-all ${
+                          isSelected
+                            ? 'border-text bg-bg-elev-2 ring-1 ring-border-strong'
+                            : 'border-border bg-bg-elev-1 hover:border-border-strong'
+                        } shadow-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
+                      >
+                        <div className="space-y-1.5 cursor-pointer" onClick={() => handleInspectDetail(app.id)}>
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-base font-semibold text-text tracking-tight">
+                              {roleTitle}
+                            </h3>
+                            <StatusBadge state={rawState} />
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-text-2">
+                            <Building2 className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
+                            <span>{companyName}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-text-2 font-medium">
-                          <Building2 className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
-                          <span>{companyName}</span>
-                        </div>
-                        <div className="flex items-center gap-3 font-mono text-[11px] text-text-3 pt-1">
-                          <span>ID: {app.id.slice(0, 8)}</span>
-                          <span>·</span>
-                          <span>Level E2 Verified</span>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isUncertain && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              loading={resolvingId === app.id}
+                              onClick={() => handleResolveUncertain(app.id, 'confirmed_with_proof')}
+                            >
+                              <span>Resolve with Proof</span>
+                            </Button>
+                          )}
+                          <Button
+                            variant={isSelected ? 'primary' : 'secondary'}
+                            size="sm"
+                            onClick={() => handleInspectDetail(app.id)}
+                          >
+                            <span>Evidence & Audit</span>
+                          </Button>
                         </div>
                       </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
-                      <div className="flex items-center gap-2 shrink-0">
+            {/* All In-Progress Pipeline Applications */}
+            {otherApps.length > 0 && (
+              <div className="space-y-3 pt-4">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3 px-1">
+                  In-Progress Applications ({otherApps.length})
+                </h2>
+                <div className="space-y-3">
+                  {otherApps.map((app) => {
+                    const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
+                    const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
+                    const rawState = (app as any).state || app.current_state
+                    const isSelected = selectedAppDetail?.id === app.id
+
+                    return (
+                      <div
+                        key={app.id}
+                        className={`p-5 rounded-card border transition-all ${
+                          isSelected
+                            ? 'border-text bg-bg-elev-2'
+                            : 'border-border bg-bg-elev-1'
+                        } flex items-center justify-between gap-4`}
+                      >
+                        <div className="space-y-1 min-w-0 cursor-pointer" onClick={() => handleInspectDetail(app.id)}>
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-sm font-semibold text-text truncate">
+                              {roleTitle}
+                            </h3>
+                            <StatusBadge state={rawState} />
+                          </div>
+                          <p className="text-xs text-text-3 truncate">{companyName}</p>
+                        </div>
+
                         <Button
-                          variant="secondary"
+                          variant={isSelected ? 'primary' : 'secondary'}
                           size="sm"
                           onClick={() => handleInspectDetail(app.id)}
                         >
-                          <ShieldCheck className="w-4 h-4 text-ok" />
                           <span>Evidence & Audit</span>
                         </Button>
                       </div>
-                    </motion.div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Pending Submissions / Uncertain */}
-          {pendingApps.length > 0 && (
-            <div className="space-y-3 pt-4">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-warn" />
-                  <span>Pending Confirmation ({pendingApps.length})</span>
-                </h2>
-              </div>
-              <div className="space-y-3">
-                {pendingApps.map((app) => {
-                  const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
-                  const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
-                  const rawState = (app as any).state || app.current_state
-                  const isUncertain = rawState === 'SUBMISSION_UNCERTAIN'
-
-                  return (
-                    <div
-                      key={app.id}
-                      className="p-6 rounded-card border border-border bg-bg-elev-1 shadow-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-base font-semibold text-text tracking-tight">
-                            {roleTitle}
-                          </h3>
-                          <StatusBadge state={rawState} />
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-text-2">
-                          <Building2 className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
-                          <span>{companyName}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isUncertain && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            loading={resolvingId === app.id}
-                            onClick={() => handleResolveUncertain(app.id, 'confirmed_with_proof')}
-                          >
-                            <span>Resolve with Proof</span>
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleInspectDetail(app.id)}
-                        >
-                          <span>Evidence & Audit</span>
-                        </Button>
-                      </div>
+          {/* Right Column: Evidence Inspector Panel (Two-Column Layout) */}
+          {selectedAppDetail && (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedAppDetail.id}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 12 }}
+                transition={{ duration: 0.2 }}
+                className="lg:col-span-5 rounded-card border border-border bg-bg-elev-1 shadow-float p-6 space-y-6 lg:sticky lg:top-24"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-mono text-text-3">
+                      <FileCheck className="w-3.5 h-3.5 text-ok" />
+                      <span>EVIDENCE INSPECTOR</span>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                    <h3 className="text-lg font-semibold text-text tracking-tight mt-1">
+                      {(selectedAppDetail as any).role_title || selectedAppDetail.job?.role_title || 'Application'}
+                    </h3>
+                    <p className="text-xs text-text-3 font-mono mt-0.5">
+                      #{(selectedAppDetail.id || '').slice(0, 8)} · {(selectedAppDetail as any).company_name || selectedAppDetail.job?.company_name || 'Portal Submission'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedAppDetail(null)}
+                    aria-label="Close inspector"
+                    className="p-1.5 rounded-full text-text-3 hover:text-text hover:bg-selected transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
 
-          {/* All In-Progress Pipeline Applications */}
-          {otherApps.length > 0 && (
-            <div className="space-y-3 pt-4">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-text-3 px-1">
-                In-Progress Applications ({otherApps.length})
-              </h2>
-              <div className="space-y-3">
-                {otherApps.map((app) => {
-                  const roleTitle = (app as any).role_title || app.job?.role_title || 'Software Engineer'
-                  const companyName = (app as any).company_name || app.job?.company_name || 'Target Company'
-                  const rawState = (app as any).state || app.current_state
+                {/* Status & Evidence Level Banner */}
+                <div className="p-4 rounded-card border border-border bg-bg-elev-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-3 uppercase tracking-wider font-semibold">
+                      Verification Level
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-ok-subtle text-ok border border-ok/20">
+                      Level E2
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-2 leading-relaxed">
+                    {(selectedAppDetail as any).evidence_level === 'E2' || (selectedAppDetail as any).state === 'APPLIED_CONFIRMED'
+                      ? 'Level E2: Independent portal polling confirmed receipt. The job portal has validated the submission ID.'
+                      : 'Level E1: Automated portal submission completed. Awaiting independent oracle audit verification.'}
+                  </p>
+                </div>
 
-                  return (
-                    <div
-                      key={app.id}
-                      className="p-5 rounded-card border border-border bg-bg-elev-1 flex items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-sm font-semibold text-text truncate">
-                            {roleTitle}
-                          </h3>
-                          <StatusBadge state={rawState} />
-                        </div>
-                        <p className="text-xs text-text-3 truncate">{companyName}</p>
-                      </div>
-
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleInspectDetail(app.id)}
-                      >
-                        <span>Evidence & Audit</span>
-                      </Button>
+                {/* Submission Provenance */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
+                    Submission Provenance
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-md border border-border bg-bg-input">
+                      <span className="text-text-3 block text-[10px] uppercase font-mono">Status</span>
+                      <span className="font-semibold text-text mt-0.5 block">
+                        {(selectedAppDetail as any).state || selectedAppDetail.current_state}
+                      </span>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
+                    <div className="p-3 rounded-md border border-border bg-bg-input">
+                      <span className="text-text-3 block text-[10px] uppercase font-mono">Version</span>
+                      <span className="font-semibold text-text mt-0.5 block">
+                        v{selectedAppDetail.version}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Event Audit Trail */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
+                    Event Audit Trail
+                  </h4>
+                  <div className="rounded-card border border-border bg-bg-input p-4 font-mono text-[11px] text-text-2 space-y-2 max-h-60 overflow-y-auto [scrollbar-width:thin]">
+                    {((selectedAppDetail as any).events || [
+                      { event: 'APPLICATION_CREATED', at: selectedAppDetail.created_at || new Date().toISOString() },
+                      { event: 'GATE_EVALUATION_PASS', at: new Date().toISOString() },
+                      { event: 'PACKAGE_APPROVED_BY_USER', at: new Date().toISOString() },
+                      { event: 'PORTAL_SUBMISSION_E2_CONFIRMED', at: new Date().toISOString() },
+                    ]).map((ev: any, idx: number) => (
+                      <div key={idx} className="flex items-start justify-between gap-3 pb-2 border-b border-border/40 last:border-0 last:pb-0">
+                        <span className="text-text font-semibold">{ev.event || ev.name}</span>
+                        <span className="text-text-3 shrink-0 text-[10px]">
+                          {new Date(ev.at || ev.timestamp || Date.now()).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Immutable Package Hash */}
+                {(selectedAppDetail as any).package_hash && (
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[11px] text-text-3 font-mono">Immutable Package Hash</span>
+                    <p className="font-mono text-xs text-text p-2.5 rounded bg-bg-input border border-border break-all">
+                      {(selectedAppDetail as any).package_hash}
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           )}
         </div>
       )}
-
-      {/* Detail & Evidence Drawer */}
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title="Evidence & Audit Trail"
-        description={
-          selectedAppDetail
-            ? `${(selectedAppDetail as any).role_title || selectedAppDetail.job?.role_title || 'Application'} #${selectedAppDetail.id.slice(0, 8)}`
-            : 'Application records'
-        }
-        width="max-w-xl"
-      >
-        {selectedAppDetail && (
-          <div className="space-y-6">
-            {/* Status & Evidence Level Banner */}
-            <div className="p-4 rounded-card border border-border bg-bg-elev-2 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-text-3 uppercase tracking-wider font-semibold">
-                  Verification Level
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-ok-subtle text-ok border border-ok/20">
-                  Level E2
-                </span>
-              </div>
-              <p className="text-xs text-text-2 leading-relaxed">
-                {(selectedAppDetail as any).evidence_level === 'E2' || (selectedAppDetail as any).state === 'APPLIED_CONFIRMED'
-                  ? 'Level E2: Independent portal polling confirmed receipt. The job portal has validated the submission ID.'
-                  : 'Level E1: Automated portal submission completed. Awaiting independent oracle audit verification.'}
-              </p>
-            </div>
-
-            {/* Submission Metadata */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
-                Submission Provenance
-              </h4>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-md border border-border bg-bg-input">
-                  <span className="text-text-3 block text-[10px] uppercase font-mono">Status</span>
-                  <span className="font-semibold text-text mt-0.5 block">
-                    {(selectedAppDetail as any).state || selectedAppDetail.current_state}
-                  </span>
-                </div>
-                <div className="p-3 rounded-md border border-border bg-bg-input">
-                  <span className="text-text-3 block text-[10px] uppercase font-mono">Version</span>
-                  <span className="font-semibold text-text mt-0.5 block">
-                    v{selectedAppDetail.version}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Event Audit Trail */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
-                Event Audit Trail
-              </h4>
-              <div className="rounded-card border border-border bg-bg-input p-4 font-mono text-[11px] text-text-2 space-y-2 max-h-60 overflow-y-auto [scrollbar-width:thin]">
-                {((selectedAppDetail as any).events || [
-                  { event: 'APPLICATION_CREATED', at: selectedAppDetail.created_at || new Date().toISOString() },
-                  { event: 'GATE_EVALUATION_PASS', at: new Date().toISOString() },
-                  { event: 'PACKAGE_APPROVED_BY_USER', at: new Date().toISOString() },
-                  { event: 'PORTAL_SUBMISSION_E2_CONFIRMED', at: new Date().toISOString() },
-                ]).map((ev: any, idx: number) => (
-                  <div key={idx} className="flex items-start justify-between gap-3 pb-2 border-b border-border/40 last:border-0 last:pb-0">
-                    <span className="text-text font-semibold">{ev.event || ev.name}</span>
-                    <span className="text-text-3 shrink-0 text-[10px]">
-                      {new Date(ev.at || ev.timestamp || Date.now()).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Package Hash */}
-            {(selectedAppDetail as any).package_hash && (
-              <div className="space-y-1 pt-2">
-                <span className="text-[11px] text-text-3 font-mono">Immutable Package Hash</span>
-                <p className="font-mono text-xs text-text p-2.5 rounded bg-bg-input border border-border break-all">
-                  {(selectedAppDetail as any).package_hash}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </Drawer>
     </div>
   )
 }

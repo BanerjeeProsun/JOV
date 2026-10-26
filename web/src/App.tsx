@@ -44,6 +44,11 @@ export const App: React.FC = () => {
     setActiveTab(tab)
   }
 
+  // Scroll to top upon navigating to any screen
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [activeTab, reviewAppId])
+
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {

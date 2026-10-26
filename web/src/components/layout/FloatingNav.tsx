@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   Briefcase,
@@ -52,11 +52,42 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
   const { resolvedTheme, toggleTheme } = useTheme()
   const reducedMotion = useReducedMotion()
   const [navVisible, setNavVisible] = useState(true)
-  const [hoveredTab, setHoveredTab] = useState<TabId | null>(null)
 
   const { scrollY } = useScroll()
 
-  // Hide nav on scroll down, show on scroll up (never hide when modal is open or near top)
+  // Reset visibility when tab changes
+  useEffect(() => {
+    setNavVisible(true)
+  }, [activeTab])
+
+  // Reveal when moving cursor towards top of window
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (e.clientY < 96) {
+        setNavVisible(true)
+      }
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    return () => window.removeEventListener('mousemove', onMouseMove)
+  }, [])
+
+  // Auto-reveal if idle after scrolling
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const onScroll = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        setNavVisible(true)
+      }, 1200)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (timer) clearTimeout(timer)
+    }
+  }, [])
+
+  // Hide nav on deep scroll down, show on scroll up (never hide when modal is open or near top)
   useMotionValueEvent(scrollY, 'change', (latest) => {
     if (isModalOpen || reducedMotion) {
       setNavVisible(true)
@@ -64,11 +95,11 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
     }
     const prev = scrollY.getPrevious() ?? 0
     const diff = latest - prev
-    if (latest < 40) {
+    if (latest < 60) {
       setNavVisible(true)
-    } else if (diff > 8 && latest > 100) {
+    } else if (diff > 10 && latest > 200) {
       setNavVisible(false)
-    } else if (diff < -8) {
+    } else if (diff < -6) {
       setNavVisible(true)
     }
   })
@@ -77,7 +108,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
     <>
       {/* Decorative pearl ambient glow positioned behind the nav */}
       <div
-        className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-24 pointer-events-none z-40 opacity-50 blur-[48px]"
+        className="fixed top-0 inset-x-0 mx-auto w-[600px] h-24 pointer-events-none z-40 opacity-50 blur-[48px]"
         style={{
           background: 'radial-gradient(ellipse at 50% 0%, var(--pearl-1) 0%, var(--pearl-2) 35%, transparent 70%)',
         }}
@@ -91,7 +122,8 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
           opacity: navVisible || isModalOpen ? 1 : 0,
         }}
         transition={spring.smooth}
-        className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden sm:block ${className}`}
+        onFocusCapture={() => setNavVisible(true)}
+        className={`fixed top-4 inset-x-0 mx-auto w-fit z-50 hidden sm:block ${className}`}
         aria-label="Main navigation"
       >
         <div className="glass flex items-center h-14 rounded-full p-1.5 gap-1 shadow-float">
@@ -109,39 +141,29 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
 
           {/* Nav Items */}
           <nav className="flex items-center gap-0.5">
-            {NAV_ITEMS.map((item, index) => {
+            {NAV_ITEMS.map((item) => {
               const active = activeTab === item.id
               const Icon = item.icon
 
-              // Subtle dock scaling on hover
-              const isHovered = hoveredTab === item.id
-              const hoveredIndex = NAV_ITEMS.findIndex(i => i.id === hoveredTab)
-              const isNeighbor = hoveredIndex !== -1 && Math.abs(hoveredIndex - index) === 1
-              const scale = isHovered ? 1.05 : isNeighbor ? 1.02 : 1.0
-
               return (
-                <motion.button
+                <button
                   key={item.id}
                   onClick={() => onSelectTab(item.id)}
-                  onMouseEnter={() => !reducedMotion && setHoveredTab(item.id)}
-                  onMouseLeave={() => !reducedMotion && setHoveredTab(null)}
-                  animate={{ scale }}
-                  transition={spring.snappy}
                   aria-current={active ? 'page' : undefined}
                   className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
-                    active ? 'text-text' : 'text-text-2 hover:text-text'
+                    active ? 'text-text' : 'text-text-2 hover:text-text hover:bg-selected/40'
                   } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus`}
                 >
                   {active && (
                     <motion.span
                       layoutId="nav-pill"
-                      className="absolute inset-0 rounded-full bg-selected border border-border"
+                      className="absolute inset-0 rounded-full bg-selected border border-border pointer-events-none"
                       transition={spring.layout}
                     />
                   )}
                   <Icon className="relative z-10 w-4 h-4 shrink-0" strokeWidth={1.5} />
-                  <span className="relative z-10 hidden lg:inline">{item.label}</span>
-                </motion.button>
+                  <span className="relative z-10 hidden sm:inline">{item.label}</span>
+                </button>
               )
             })}
           </nav>
@@ -184,7 +206,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
         aria-label="Mobile navigation"
       >
         <div className="glass flex items-center justify-around h-14 rounded-full px-2 shadow-float border border-border">
-          {NAV_ITEMS.slice(0, 5).map((item) => {
+          {NAV_ITEMS.map((item) => {
             const active = activeTab === item.id
             const Icon = item.icon
             return (
@@ -199,35 +221,21 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
                 {active && (
                   <motion.span
                     layoutId="mobile-nav-pill"
-                    className="absolute inset-0 rounded-full bg-selected border border-border"
+                    className="absolute inset-0 rounded-full bg-selected border border-border pointer-events-none"
                     transition={spring.layout}
                   />
                 )}
-                <Icon className="relative z-10 w-5 h-5" strokeWidth={1.5} />
+                <Icon className="relative z-10 w-4 h-4" strokeWidth={1.5} />
+                <span className="sr-only">{item.label}</span>
               </button>
             )
           })}
-          <button
-            onClick={() => onSelectTab('settings')}
-            className={`relative flex flex-col items-center justify-center p-2 rounded-full text-xs ${
-              activeTab === 'settings' ? 'text-text' : 'text-text-3'
-            }`}
-          >
-            {activeTab === 'settings' && (
-              <motion.span
-                layoutId="mobile-nav-pill"
-                className="absolute inset-0 rounded-full bg-selected border border-border"
-                transition={spring.layout}
-              />
-            )}
-            <Settings className="relative z-10 w-5 h-5" strokeWidth={1.5} />
-          </button>
           <button
             onClick={(e) => toggleTheme(e)}
             aria-label="Toggle theme"
             className="p-2 text-text-3 hover:text-text"
           >
-            {resolvedTheme === 'dark' ? <Sun className="w-5 h-5" strokeWidth={1.5} /> : <Moon className="w-5 h-5" strokeWidth={1.5} />}
+            {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" strokeWidth={1.5} /> : <Moon className="w-4 h-4" strokeWidth={1.5} />}
           </button>
         </div>
       </nav>

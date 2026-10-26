@@ -66,9 +66,11 @@ export const CinematicBackgroundVideo: React.FC<CinematicBackgroundVideoProps> =
       <img
         src="/media/onboarding-poster.jpg"
         alt=""
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-          canPlay ? 'opacity-0' : 'opacity-100'
-        }`}
+        style={{
+          opacity: resolvedTheme === 'dark' ? (canPlay ? 0 : 0.7) : (canPlay ? 0 : 0.25),
+          filter: resolvedTheme === 'dark' ? 'none' : 'invert(0.9) brightness(1.2)',
+        }}
+        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
       />
 
       {/* Video layer (deferred mount) */}
@@ -81,8 +83,11 @@ export const CinematicBackgroundVideo: React.FC<CinematicBackgroundVideoProps> =
           preload="metadata"
           onCanPlay={() => setCanPlay(true)}
           initial={{ opacity: 0 }}
-          animate={{ opacity: canPlay ? 1 : 0 }}
+          animate={{ opacity: canPlay ? (resolvedTheme === 'dark' ? 0.75 : 0.22) : 0 }}
           transition={{ duration: 0.8 }}
+          style={{
+            filter: resolvedTheme === 'dark' ? 'none' : 'invert(0.9) brightness(1.2)',
+          }}
           className="absolute inset-0 w-full h-full object-cover"
         >
           <source src="/media/onboarding-loop.webm" type="video/webm" />
@@ -97,8 +102,7 @@ export const CinematicBackgroundVideo: React.FC<CinematicBackgroundVideoProps> =
           background:
             resolvedTheme === 'dark'
               ? 'linear-gradient(to right, rgba(5,5,6,0.92) 0%, rgba(5,5,6,0.78) 45%, rgba(5,5,6,0.85) 100%), linear-gradient(to bottom, rgba(5,5,6,0.6) 0%, transparent 35%, rgba(5,5,6,0.95) 100%)'
-              : 'linear-gradient(to right, rgba(251,251,253,0.94) 0%, rgba(251,251,253,0.82) 45%, rgba(251,251,253,0.88) 100%), linear-gradient(to bottom, rgba(251,251,253,0.7) 0%, transparent 35%, rgba(251,251,253,0.95) 100%)',
-          mixBlendMode: resolvedTheme === 'dark' ? 'normal' : 'multiply',
+              : 'linear-gradient(to right, rgba(251,251,253,0.96) 0%, rgba(251,251,253,0.88) 45%, rgba(251,251,253,0.94) 100%), linear-gradient(to bottom, rgba(251,251,253,0.85) 0%, transparent 40%, rgba(251,251,253,0.98) 100%)',
         }}
       />
     </div>
