@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { MotionConfig } from 'motion/react'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppShell } from './components/layout/AppShell'
 import type { TabId } from './components/layout/FloatingNav'
 import { CommandPalette } from './components/ui/CommandPalette'
@@ -14,15 +14,23 @@ import { ApplicationTrackerScreen } from './screens/ApplicationTrackerScreen'
 import { CandidateProfileScreen } from './screens/CandidateProfileScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { DiagnosticsScreen } from './screens/DiagnosticsScreen'
+import { AuthRequiredGate } from './components/auth/AuthRequiredGate'
 import { spring } from './design/motion'
 
-export const App: React.FC = () => {
+const MainApp: React.FC = () => {
+  const { isAuthenticated, isSandboxMode, openAuthModal } = useAuth()
+  const hasFullAccess = isAuthenticated || isSandboxMode
+
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [reviewAppId, setReviewAppId] = useState<string | null>(null)
   const [commandOpen, setCommandOpen] = useState(false)
   const [, setIntroComplete] = useState(false)
 
   const handleOpenReview = (appId: string) => {
+    if (!hasFullAccess) {
+      openAuthModal()
+      return
+    }
     setReviewAppId(appId)
   }
 
@@ -38,6 +46,9 @@ export const App: React.FC = () => {
   const handleNavigateFromOverview = (tab: 'jobs' | 'queue' | 'tracker' | 'profile') => {
     setReviewAppId(null)
     setActiveTab(tab)
+    if (!hasFullAccess) {
+      openAuthModal()
+    }
   }
 
   const navigate = (tab: TabId) => {
@@ -64,54 +75,85 @@ export const App: React.FC = () => {
   const pageKey = reviewAppId ? `review-${reviewAppId}` : activeTab
 
   return (
-    <AuthProvider>
-      <MotionConfig reducedMotion="user" transition={spring.smooth}>
-        {/* Intro sequence with shared layoutId="brand-j" handoff */}
-        <IntroSequence onComplete={() => setIntroComplete(true)} />
+    <MotionConfig reducedMotion="user" transition={spring.smooth}>
+      {/* Intro sequence with shared layoutId="brand-j" handoff */}
+      <IntroSequence onComplete={() => setIntroComplete(true)} />
 
-        <AppShell
-          activeTab={reviewAppId ? 'queue' : activeTab}
-          onSelectTab={navigate}
-          onOpenCommand={() => setCommandOpen(true)}
-          isModalOpen={commandOpen}
-        >
-          <PageTransition pageKey={pageKey}>
-            {reviewAppId ? (
+      <AppShell
+        activeTab={reviewAppId ? 'queue' : activeTab}
+        onSelectTab={navigate}
+        onOpenCommand={() => setCommandOpen(true)}
+        isModalOpen={commandOpen}
+      >
+        <PageTransition pageKey={pageKey}>
+          {reviewAppId ? (
+            hasFullAccess ? (
               <ApplicationReviewScreen
                 applicationId={reviewAppId}
                 onBack={handleBackFromReview}
                 onNavigateToTracker={handleNavigateToTracker}
               />
             ) : (
-              <>
-                {activeTab === 'overview' && (
-                  <OverviewScreen onNavigate={handleNavigateFromOverview} />
-                )}
-                {activeTab === 'jobs' && (
+              <AuthRequiredGate tab="queue" onNavigate={navigate} />
+            )
+          ) : (
+            <>
+              {activeTab === 'overview' && (
+                <OverviewScreen onNavigate={handleNavigateFromOverview} />
+              )}
+              {activeTab === 'jobs' &&
+                (hasFullAccess ? (
                   <JobDiscoveryScreen
                     onSelectApplication={handleOpenReview}
                     onNavigateToQueue={() => setActiveTab('queue')}
                   />
-                )}
-                {activeTab === 'queue' && (
+                ) : (
+                  <AuthRequiredGate tab="jobs" onNavigate={navigate} />
+                ))}
+              {activeTab === 'queue' &&
+                (hasFullAccess ? (
                   <ApplicationQueueScreen onSelectApplication={handleOpenReview} />
-                )}
-                {activeTab === 'tracker' && <ApplicationTrackerScreen />}
-                {activeTab === 'profile' && <CandidateProfileScreen />}
-                {activeTab === 'settings' && <SettingsScreen />}
-                {activeTab === 'diagnostics' && <DiagnosticsScreen />}
-              </>
-            )}
-          </PageTransition>
-        </AppShell>
+                ) : (
+                  <AuthRequiredGate tab="queue" onNavigate={navigate} />
+                ))}
+              {activeTab === 'tracker' &&
+                (hasFullAccess ? (
+                  <ApplicationTrackerScreen />
+                ) : (
+                  <AuthRequiredGate tab="tracker" onNavigate={navigate} />
+                ))}
+              {activeTab === 'profile' &&
+                (hasFullAccess ? (
+                  <CandidateProfileScreen />
+                ) : (
+                  <AuthRequiredGate tab="profile" onNavigate={navigate} />
+                ))}
+              {activeTab === 'settings' &&
+                (hasFullAccess ? (
+                  <SettingsScreen />
+                ) : (
+                  <AuthRequiredGate tab="settings" onNavigate={navigate} />
+                ))}
+              {activeTab === 'diagnostics' && <DiagnosticsScreen />}
+            </>
+          )}
+        </PageTransition>
+      </AppShell>
 
-        {/* Global ⌘K Command Palette */}
-        <CommandPalette
-          open={commandOpen}
-          onClose={() => setCommandOpen(false)}
-          onNavigate={navigate}
-        />
-      </MotionConfig>
+      {/* Global ⌘K Command Palette */}
+      <CommandPalette
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        onNavigate={navigate}
+      />
+    </MotionConfig>
+  )
+}
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <MainApp />
     </AuthProvider>
   )
 }

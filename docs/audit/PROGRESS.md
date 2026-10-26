@@ -463,3 +463,31 @@
 
 
 
+
+---
+
+### Feature Enhancement: Unauthenticated Product Showcase & Strict Auth Barriers
+- **Status**: COMPLETED
+- **Scope**:
+  - Unauthenticated Landing Experience:
+    - When a visitor loads JOV.si without signing in, do not directly expose private workspace features or empty states.
+    - Present a comprehensive, public Product Presentation & Feature Tour explaining the core pillars:
+      1. Master-Resume Fact Provenance (SHA-256 document grounding, zero hallucinations).
+      2. Real Multi-Source ATS Discovery (Ashby, SmartRecruiters, Lever, Greenhouse, 249-country search).
+      3. Two-Phase Eligibility & Explainable Fit (9 hard gates + 0–100 scoring).
+      4. 15-Point Pre-Submission Safety Gate & Offline Hand-off Kits.
+    - Provide prominent "Sign In / Create Account" call-to-actions.
+  - Strict Auth Barrier on Private Features:
+    - Protect all private features (Jobs, Queue, Tracker, Profile, Settings).
+    - Add visual lock indicators and authentication prompts in `FloatingNav.tsx`.
+    - Render dedicated `AuthRequiredGate.tsx` component if an unauthenticated user navigates to any private workspace tab.
+    - Upon registration or login, immediately unlock full workspace features, personalized display name greeting, and live Command Center metrics.
+  - End-to-End Verification:
+    - Authored `tests/e2e/test_unauthenticated_flow.py` verifying landing showcase, auth gate barriers on private tabs, account registration, and immediate feature unlock in a live headless browser.
+    - Verified `tests/e2e/test_ui_vertical_slice.py` retains 100% pass rate in headless Chromium.
+    - Verified all 213 tests pass.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v tests/e2e/test_unauthenticated_flow.py` -> 1 passed in 6.32s.
+  - `.\.venv\Scripts\pytest.exe -v tests/e2e/test_ui_vertical_slice.py` -> 1 passed in 15.76s.
+  - `.\.venv\Scripts\pytest.exe -v` -> 213 passed, 0 failed in 42.27s.
+  - `npm --prefix web run build` -> `tsc -b && vite build` succeeded in 1.57s.

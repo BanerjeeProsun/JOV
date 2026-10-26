@@ -10,6 +10,7 @@ import {
   Sun,
   Search,
   LogIn,
+  Lock,
 } from 'lucide-react'
 import { motion, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
 import { JLogo } from '../brand/JLogo'
@@ -49,7 +50,8 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
   isModalOpen = false,
   className = '',
 }) => {
-  const { user, isAuthenticated, openAuthModal } = useAuth()
+  const { user, isAuthenticated, isSandboxMode, openAuthModal } = useAuth()
+  const hasFullAccess = isAuthenticated || isSandboxMode
   const { resolvedTheme, toggleTheme } = useTheme()
   const reducedMotion = useReducedMotion()
   const [navVisible, setNavVisible] = useState(true)
@@ -105,6 +107,16 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
     }
   })
 
+  const handleTabClick = (tabId: TabId) => {
+    const isPrivate = tabId !== 'overview' && tabId !== 'diagnostics'
+    if (isPrivate && !hasFullAccess) {
+      onSelectTab(tabId)
+      openAuthModal()
+      return
+    }
+    onSelectTab(tabId)
+  }
+
   return (
     <>
       {/* Decorative pearl ambient glow positioned behind the nav */}
@@ -131,11 +143,13 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
           {/* Logo with shared layoutId */}
           <button
             onClick={() => onSelectTab('overview')}
-            className="flex items-center gap-2 pl-3 pr-2.5 py-1 text-text rounded-full hover:opacity-85 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="flex items-center gap-2 pl-3 pr-2.5 py-1 text-text rounded-full hover:opacity-85 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
             aria-label="JOV.si home"
           >
             <JLogo size={26} layoutId="brand-j" variant="mark" />
-            <span className="font-semibold text-[14px] tracking-tight text-text">JOV<span className="text-text-3">.si</span></span>
+            <span className="font-semibold text-[14px] tracking-tight text-text">
+              JOV<span className="text-text-3">.si</span>
+            </span>
           </button>
 
           <div className="h-4 w-[1px] bg-border mx-1" />
@@ -145,15 +159,18 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
             {NAV_ITEMS.map((item) => {
               const active = activeTab === item.id
               const Icon = item.icon
+              const isPrivate = item.id !== 'overview' && item.id !== 'diagnostics'
+              const isLocked = isPrivate && !hasFullAccess
 
               return (
                 <button
                   key={item.id}
-                  onClick={() => onSelectTab(item.id)}
+                  onClick={() => handleTabClick(item.id)}
                   aria-current={active ? 'page' : undefined}
+                  title={isLocked ? `${item.label} (Sign in required)` : item.label}
                   className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
                     active ? 'text-text' : 'text-text-2 hover:text-text hover:bg-selected/40'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus`}
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer`}
                 >
                   {active && (
                     <motion.span
@@ -163,7 +180,12 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
                     />
                   )}
                   <Icon className="relative z-10 w-4 h-4 shrink-0" strokeWidth={1.5} />
-                  <span className="relative z-10 hidden sm:inline">{item.label}</span>
+                  <span className="relative z-10 hidden sm:inline flex items-center gap-1">
+                    {item.label}
+                    {isLocked && (
+                      <Lock className="w-2.5 h-2.5 opacity-60 text-text-3" strokeWidth={1.5} />
+                    )}
+                  </span>
                 </button>
               )
             })}
@@ -210,7 +232,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
               <button
                 onClick={openAuthModal}
                 aria-label="Sign in"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium text-accent-contrast bg-accent hover:opacity-90 shadow-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Sign In</span>
@@ -229,10 +251,13 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
           {NAV_ITEMS.map((item) => {
             const active = activeTab === item.id
             const Icon = item.icon
+            const isPrivate = item.id !== 'overview' && item.id !== 'diagnostics'
+            const isLocked = isPrivate && !hasFullAccess
+
             return (
               <button
                 key={item.id}
-                onClick={() => onSelectTab(item.id)}
+                onClick={() => handleTabClick(item.id)}
                 aria-current={active ? 'page' : undefined}
                 className={`relative flex flex-col items-center justify-center p-2 rounded-full text-xs ${
                   active ? 'text-text' : 'text-text-3'
@@ -245,7 +270,12 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
                     transition={spring.layout}
                   />
                 )}
-                <Icon className="relative z-10 w-4 h-4" strokeWidth={1.5} />
+                <div className="relative">
+                  <Icon className="relative z-10 w-4 h-4" strokeWidth={1.5} />
+                  {isLocked && (
+                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-text-3" />
+                  )}
+                </div>
                 <span className="sr-only">{item.label}</span>
               </button>
             )
@@ -253,7 +283,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
           <button
             onClick={(e) => toggleTheme(e)}
             aria-label="Toggle theme"
-            className="p-2 text-text-3 hover:text-text"
+            className="p-2 text-text-3 hover:text-text cursor-pointer"
           >
             {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" strokeWidth={1.5} /> : <Moon className="w-4 h-4" strokeWidth={1.5} />}
           </button>
