@@ -1,0 +1,15 @@
+
+    Alex Mercer
+    alex.mercer@protonmail.com | +1 415-555-2671 | Seattle, WA
+    https://github.com/alexmercer
+
+    EDUCATION
+    Bachelor of Science in Mathematics and Computer Science, University of Washington, 2022
+
+    EXPERIENCE
+    Distributed Systems Engineer | Apex Systems | 2022 - 2024
+    Designed robust asynchronous queue workers in Python and Go with Redis and PostgreSQL.
+
+    SKILLS
+    Python, Go, FastAPI, PostgreSQL, Redis, Docker, Git
+    

@@ -1,0 +1,24 @@
+# Environments & dependencies
+.venv/
+node_modules/
+*/node_modules/
+__pycache__/
+*/__pycache__/
+.pytest_cache/
+*.pyc
+
+# Build outputs
+dist/
+*/dist/
+dist-ssr/
+*.local
+
+# Database temp files
+*.db-shm
+*.db-wal
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
