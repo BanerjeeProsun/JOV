@@ -17,7 +17,7 @@
 | **M6** | Normalized Schema, Geo Dataset & Parser | **COMPLETED** | 143 / 143 | `e9b4d4b` |
 | **M7** | Search & Filters: Facets, URL State & UI Wiring | **COMPLETED** | 150 / 150 | `e38e8d4` |
 | **M8** | Aggregator/Feed Connectors & Manual Import | **COMPLETED** | 171 / 171 | `c396c3d` |
-| **M9** | Eligibility Gates & Explainable Scoring | **COMPLETED** | 181 / 181 | pending |
+| **M9** | Eligibility Gates & Explainable Scoring | **COMPLETED** | 181 / 181 | `d536629` |
 | **M10** | Job-Specific Resume Generation & Grounding | **IN PROGRESS** | - | - |
 | **M11** | Cover Letters with Provenance Grounding | **PENDING** | - | - |
 | **M12** | Application Planning & Manual Handoff | **PENDING** | - | - |
