@@ -13,10 +13,12 @@ against the candidate's active verified facts.
 import hashlib
 import html
 import re
+import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 import httpx
 
+from jovsi.config import settings
 from jovsi.adapters.sanitizer import UntrustedInputSanitizer
 from jovsi.domain.models import DegreeLevel, Fact, FactKind, Job, JobRequirements, JobStatus
 from jovsi.domain.eligibility import EligibilityEngine
@@ -206,6 +208,201 @@ class JobicyConnector(JobSourceConnector):
         return results
 
 
+class ArbeitnowConnector(JobSourceConnector):
+    source_name: str = "arbeitnow"
+
+    def search(self, query: str = "", company: Optional[str] = None, location: Optional[str] = None, limit: int = 15) -> List[Dict[str, Any]]:
+        results = []
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                url = "https://www.arbeitnow.com/api/job-board-api"
+                resp = client.get(url)
+                if resp.status_code != 200:
+                    return results
+                data = resp.json()
+                postings = data.get("data", [])
+
+                for p in postings:
+                    title = p.get("title", "")
+                    comp_name = p.get("company_name", "Tech Employer")
+                    loc = p.get("location") or ("Remote" if p.get("remote") else "Europe")
+                    raw_desc = html.unescape(p.get("description", ""))
+                    clean_desc = re.sub(r"<[^>]+>", " ", raw_desc)
+                    clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+                    tags = p.get("tags") or []
+                    is_remote = bool(p.get("remote") or "remote" in loc.lower())
+
+                    if query:
+                        q_lower = query.lower()
+                        if (
+                            q_lower not in title.lower()
+                            and q_lower not in clean_desc.lower()
+                            and not any(q_lower in str(t).lower() for t in tags)
+                        ):
+                            continue
+
+                    if company:
+                        if company.lower() not in comp_name.lower():
+                            continue
+
+                    if location:
+                        loc_lower = location.lower()
+                        if loc_lower not in loc.lower() and not (is_remote and "remote" in loc_lower):
+                            continue
+
+                    detected_skills = MasterSkillsDetector.detect_skills(f"{title} {' '.join(tags)} {clean_desc}")
+                    all_skills = list(dict.fromkeys(detected_skills + [str(t) for t in tags if len(str(t)) < 25]))
+
+                    results.append({
+                        "source": "arbeitnow",
+                        "source_url": p.get("url") or "https://www.arbeitnow.com",
+                        "portal_key": "arbeitnow_api",
+                        "native_id": str(p.get("slug") or len(results)),
+                        "company_name": comp_name,
+                        "title": title,
+                        "location": loc,
+                        "raw_description": clean_desc[:4000],
+                        "required_skills": all_skills[:8],
+                        "accepted_work_modes": ["remote"] if is_remote else ["hybrid", "onsite"],
+                    })
+
+                    if len(results) >= limit:
+                        break
+        except Exception:
+            pass
+
+        return results
+
+
+class AdzunaConnector(JobSourceConnector):
+    source_name: str = "adzuna"
+
+    def search(self, query: str = "", company: Optional[str] = None, location: Optional[str] = None, limit: int = 15) -> List[Dict[str, Any]]:
+        app_id = settings.ADZUNA_APP_ID
+        app_key = settings.ADZUNA_API_KEY
+        if not app_id or not app_key:
+            return []
+
+        country = "us"
+        if location:
+            loc_l = location.lower()
+            if any(k in loc_l for k in ["uk", "london", "great britain", "england", "scotland"]):
+                country = "gb"
+            elif any(k in loc_l for k in ["india", "bengaluru", "delhi", "mumbai", "pune", "hyderabad"]):
+                country = "in"
+            elif any(k in loc_l for k in ["germany", "berlin", "munich", "frankfurt", "hamburg"]):
+                country = "de"
+            elif any(k in loc_l for k in ["canada", "toronto", "vancouver", "montreal"]):
+                country = "ca"
+
+        results = []
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                params = {
+                    "app_id": app_id,
+                    "app_key": app_key,
+                    "results_per_page": min(limit, 50),
+                    "what": query or "software engineer",
+                }
+                if location:
+                    params["where"] = location
+
+                url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1"
+                resp = client.get(url, params=params)
+                if resp.status_code != 200:
+                    return results
+
+                data = resp.json()
+                items = data.get("results", [])
+                for item in items:
+                    title = item.get("title", "")
+                    comp_dict = item.get("company") or {}
+                    comp_name = comp_dict.get("display_name", "Company")
+                    loc_dict = item.get("location") or {}
+                    loc_name = loc_dict.get("display_name", "Various")
+                    desc = item.get("description", "")
+
+                    if company and company.lower() not in comp_name.lower():
+                        continue
+
+                    detected_skills = MasterSkillsDetector.detect_skills(f"{title} {desc}")
+
+                    results.append({
+                        "source": "adzuna",
+                        "source_url": item.get("redirect_url") or "https://www.adzuna.com",
+                        "portal_key": "adzuna_aggregator",
+                        "native_id": str(item.get("id")),
+                        "company_name": comp_name,
+                        "title": title,
+                        "location": loc_name,
+                        "raw_description": desc[:4000],
+                        "required_skills": detected_skills[:8],
+                        "accepted_work_modes": ["remote"] if "remote" in loc_name.lower() else ["hybrid", "onsite"],
+                    })
+
+                    if len(results) >= limit:
+                        break
+        except Exception:
+            pass
+
+        return results
+
+
+class RemotiveConnector(JobSourceConnector):
+    source_name: str = "remotive"
+
+    def search(self, query: str = "", company: Optional[str] = None, location: Optional[str] = None, limit: int = 15) -> List[Dict[str, Any]]:
+        results = []
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                url = f"https://remotive.com/api/remote-jobs?limit={min(limit * 2, 50)}"
+                if query:
+                    url += f"&search={urllib.parse.quote_plus(query)}"
+                resp = client.get(url)
+                if resp.status_code != 200:
+                    return results
+
+                data = resp.json()
+                jobs = data.get("jobs", [])
+                for j in jobs:
+                    title = j.get("title", "")
+                    comp_name = j.get("company_name", "Remote Tech Company")
+                    loc = j.get("candidate_required_location") or "Remote"
+                    raw_desc = html.unescape(j.get("description", ""))
+                    clean_desc = re.sub(r"<[^>]+>", " ", raw_desc)
+                    clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+                    tags = j.get("tags") or []
+
+                    if company and company.lower() not in comp_name.lower():
+                        continue
+
+                    if location and location.lower() not in loc.lower() and "remote" not in location.lower():
+                        continue
+
+                    detected_skills = MasterSkillsDetector.detect_skills(f"{title} {' '.join(tags)} {clean_desc}")
+                    all_skills = list(dict.fromkeys(detected_skills + [str(t) for t in tags if len(str(t)) < 25]))
+
+                    results.append({
+                        "source": "remotive",
+                        "source_url": j.get("url") or "https://remotive.com",
+                        "portal_key": "remotive_remote",
+                        "native_id": str(j.get("id")),
+                        "company_name": comp_name,
+                        "title": title,
+                        "location": loc,
+                        "raw_description": clean_desc[:4000],
+                        "required_skills": all_skills[:8],
+                        "accepted_work_modes": ["remote"],
+                    })
+
+                    if len(results) >= limit:
+                        break
+        except Exception:
+            pass
+
+        return results
+
+
 class AshbyConnector(JobSourceConnector):
     source_name: str = "ashby"
 
@@ -375,6 +572,24 @@ class SourceRegistryService:
                 "description": "Live remote engineering listings across international tech employers.",
             },
             {
+                "id": "arbeitnow",
+                "name": "Arbeitnow European/Remote Feed",
+                "provider": "arbeitnow",
+                "description": "Public feed of remote and European engineering positions with structured skill tags.",
+            },
+            {
+                "id": "adzuna",
+                "name": "Adzuna Multi-Country API",
+                "provider": "adzuna",
+                "description": "Global multi-country aggregator API (US, UK, India, EU). Activates with ADZUNA_APP_ID/KEY.",
+            },
+            {
+                "id": "remotive",
+                "name": "Remotive Remote Feed",
+                "provider": "remotive",
+                "description": "Public remote tech job listings curated across global tech companies.",
+            },
+            {
                 "id": "manual",
                 "name": "Direct Job Import",
                 "provider": "manual",
@@ -444,12 +659,23 @@ class SourceRegistryService:
             db.commit()
             return source
 
+        if source.provider == "adzuna":
+            if not settings.ADZUNA_APP_ID or not settings.ADZUNA_API_KEY:
+                source.status = "unconfigured"
+                source.last_error = "Missing ADZUNA_APP_ID or ADZUNA_API_KEY credentials (BLOCKED: CREDENTIALS)."
+                source.last_probed_at = datetime.utcnow()
+                db.commit()
+                return source
+
         url_map = {
             "greenhouse": f"https://boards-api.greenhouse.io/v1/boards/{source.board_identifier}/jobs?content=false",
             "lever": f"https://api.lever.co/v0/postings/{source.board_identifier}?mode=json",
             "ashby": f"https://api.ashbyhq.com/posting-api/job-board/{source.board_identifier}",
             "smartrecruiters": f"https://api.smartrecruiters.com/v1/companies/{source.board_identifier}/postings?limit=5",
             "jobicy": "https://jobicy.com/api/v2/remote-jobs?count=1",
+            "arbeitnow": "https://www.arbeitnow.com/api/job-board-api",
+            "remotive": "https://remotive.com/api/remote-jobs?limit=1",
+            "adzuna": f"https://api.adzuna.com/v1/api/jobs/us/search/1?app_id={settings.ADZUNA_APP_ID}&app_key={settings.ADZUNA_API_KEY}&results_per_page=1" if settings.ADZUNA_APP_ID else None,
         }
 
         url = url_map.get(source.provider)
@@ -476,6 +702,12 @@ class SourceRegistryService:
                     jobs = data.get("content", [])
                 elif source.provider == "jobicy":
                     jobs = data.get("jobs", [])
+                elif source.provider == "arbeitnow":
+                    jobs = data.get("data", [])
+                elif source.provider == "remotive":
+                    jobs = data.get("jobs", [])
+                elif source.provider == "adzuna":
+                    jobs = data.get("results", [])
                 else:
                     jobs = []
 
@@ -498,6 +730,96 @@ class SourceRegistryService:
         db.refresh(source)
         return source
 
+    @classmethod
+    def check_all_sources_health(cls, db: Optional[Any] = None) -> List[Dict[str, Any]]:
+        """Return connectivity telemetry for all configured sources."""
+        import time
+
+        endpoints_to_probe = [
+            ("greenhouse", "Greenhouse ATS Boards", "ats", "https://boards-api.greenhouse.io/v1/boards/cloudflare/jobs?content=false"),
+            ("lever", "Lever ATS Postings", "ats", "https://api.lever.co/v0/postings/palantir?mode=json"),
+            ("ashby", "Ashby Job Boards", "ats", "https://api.ashbyhq.com/posting-api/job-board/ramp"),
+            ("smartrecruiters", "SmartRecruiters Postings", "ats", "https://api.smartrecruiters.com/v1/companies/visa/postings?limit=1"),
+            ("jobicy", "Jobicy Remote API", "feed", "https://jobicy.com/api/v2/remote-jobs?count=1"),
+            ("arbeitnow", "Arbeitnow European/Remote Feed", "feed", "https://www.arbeitnow.com/api/job-board-api"),
+            ("remotive", "Remotive Remote Feed", "feed", "https://remotive.com/api/remote-jobs?limit=1"),
+        ]
+
+        health_reports = []
+
+        with httpx.Client(timeout=4.0) as client:
+            for provider, name, category, probe_url in endpoints_to_probe:
+                start_time = time.perf_counter()
+                try:
+                    resp = client.get(probe_url)
+                    latency = round((time.perf_counter() - start_time) * 1000, 1)
+                    if resp.status_code == 200:
+                        status_str = "HEALTHY"
+                        err = None
+                    else:
+                        status_str = "DEGRADED"
+                        err = f"HTTP {resp.status_code}"
+                except Exception as exc:
+                    latency = round((time.perf_counter() - start_time) * 1000, 1)
+                    status_str = "DOWN"
+                    err = str(exc)[:120]
+
+                health_reports.append({
+                    "provider": provider,
+                    "name": name,
+                    "category": category,
+                    "status": status_str,
+                    "latency_ms": latency,
+                    "policy_status": "permitted",
+                    "error": err,
+                    "last_checked_at": datetime.utcnow().isoformat(),
+                })
+
+        # Adzuna
+        if settings.ADZUNA_APP_ID and settings.ADZUNA_API_KEY:
+            start_time = time.perf_counter()
+            try:
+                with httpx.Client(timeout=4.0) as client:
+                    resp = client.get(
+                        f"https://api.adzuna.com/v1/api/jobs/us/search/1?app_id={settings.ADZUNA_APP_ID}&app_key={settings.ADZUNA_API_KEY}&results_per_page=1"
+                    )
+                latency = round((time.perf_counter() - start_time) * 1000, 1)
+                status_str = "HEALTHY" if resp.status_code == 200 else "DEGRADED"
+                err = None if resp.status_code == 200 else f"HTTP {resp.status_code}"
+            except Exception as exc:
+                latency = round((time.perf_counter() - start_time) * 1000, 1)
+                status_str = "DOWN"
+                err = str(exc)[:120]
+        else:
+            latency = None
+            status_str = "UNCONFIGURED"
+            err = "ADZUNA_APP_ID or ADZUNA_API_KEY not configured (BLOCKED: CREDENTIALS)"
+
+        health_reports.append({
+            "provider": "adzuna",
+            "name": "Adzuna Multi-Country API",
+            "category": "aggregator",
+            "status": status_str,
+            "latency_ms": latency,
+            "policy_status": "permitted",
+            "error": err,
+            "last_checked_at": datetime.utcnow().isoformat(),
+        })
+
+        # Manual Import
+        health_reports.append({
+            "provider": "manual",
+            "name": "Direct Job Import",
+            "category": "manual",
+            "status": "HEALTHY",
+            "latency_ms": 0.0,
+            "policy_status": "permitted",
+            "error": None,
+            "last_checked_at": datetime.utcnow().isoformat(),
+        })
+
+        return health_reports
+
 
 class JobDiscoveryService:
     CONNECTORS = {
@@ -506,6 +828,9 @@ class JobDiscoveryService:
         "ashby": AshbyConnector(),
         "smartrecruiters": SmartRecruitersConnector(),
         "jobicy": JobicyConnector(),
+        "arbeitnow": ArbeitnowConnector(),
+        "adzuna": AdzunaConnector(),
+        "remotive": RemotiveConnector(),
     }
 
     @classmethod

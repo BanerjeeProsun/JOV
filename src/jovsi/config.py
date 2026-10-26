@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gemini-2.5-flash"
     GEMINI_API_KEY: Optional[str] = None
 
+    # Aggregator API credentials (optional - activates Adzuna connector when set)
+    ADZUNA_APP_ID: Optional[str] = None
+    ADZUNA_API_KEY: Optional[str] = None
+
     @property
     def effective_llm_api_key(self) -> Optional[str]:
         return self.LLM_API_KEY or self.GEMINI_API_KEY

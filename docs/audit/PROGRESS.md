@@ -15,9 +15,9 @@
 | **M4** | Master-Resume Ingestion & Profile Verification | **COMPLETED** | 133 / 133 | `d04e4ab` |
 | **M5** | Source Registry & Real ATS Connectors | **COMPLETED** | 137 / 137 | `62bd27d` |
 | **M6** | Normalized Schema, Geo Dataset & Parser | **COMPLETED** | 143 / 143 | `e9b4d4b` |
-| **M7** | Search & Filters: Facets, URL State & UI Wiring | **COMPLETED** | 150 / 150 | `[commit-hash]` |
-| **M8** | Aggregator/Feed Connectors & Manual Import | **IN PROGRESS** | - | - |
-| **M9** | Eligibility Gates & Explainable Scoring | **PENDING** | - | - |
+| **M7** | Search & Filters: Facets, URL State & UI Wiring | **COMPLETED** | 150 / 150 | `e38e8d4` |
+| **M8** | Aggregator/Feed Connectors & Manual Import | **COMPLETED** | 171 / 171 | pending |
+| **M9** | Eligibility Gates & Explainable Scoring | **IN PROGRESS** | - | - |
 | **M10** | Job-Specific Resume Generation & Grounding | **PENDING** | - | - |
 | **M11** | Cover Letters with Provenance Grounding | **PENDING** | - | - |
 | **M12** | Application Planning & Manual Handoff | **PENDING** | - | - |
@@ -214,3 +214,47 @@
   - `.\.venv\Scripts\pytest.exe -v` -> 150 passed, 0 failed in 34.03s.
   - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.06s.
 - **Definition of Done for M7**: Server-side faceted aggregation, multi-dimensional search engine, frontend filter wiring, and URL state synchronization fully verified.
+
+---
+
+### Milestone 8: Aggregator/Feed Connectors & Manual Import
+- **Scope**:
+  - Implement and verify Aggregator Connectors:
+    - `JobicyConnector`: Public remote tech jobs feed with rate-limit resilience and `LocationParser` integration.
+    - `ArbeitnowConnector`: Official public European & remote tech jobs feed.
+    - `AdzunaConnector`: Multi-country aggregator API with graceful credential handling (`UNCONFIGURED` / `BLOCKED: CREDENTIALS` status when missing keys, active search when configured).
+    - `RemotiveConnector`: Open remote jobs feed.
+  - SSRF-Safe Fetcher (`src/jovsi/adapters/ssrf.py`):
+    - Strict validation against private IPs (`10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1, fc00::/7`), link-local, cloud metadata (`169.254.169.254`, `metadata.google.internal`), redirect hops validation, response size capping, and scheme restrictions.
+  - Manual Import Engine & Deep Link Helper (`src/jovsi/services/manual_import.py`):
+    - URL Import (`POST /api/v1/jobs/import/url`): Auto-detects ATS endpoints (Greenhouse, Lever, Ashby, SmartRecruiters) and extracts structured data directly; parses schema.org `JobPosting` JSON-LD / OpenGraph for generic pages; returns explicit guidance for restricted anti-scraping platforms (LinkedIn, Indeed, Naukri).
+    - Text Import (`POST /api/v1/jobs/import`): Ingests user-pasted job postings with sanitization, location parsing, and deduplication.
+    - Deep Links (`GET /api/v1/jobs/deep-links`): Generates search links for restricted platforms (LinkedIn, Indeed, Naukri, Wellfound) preserving search keywords and location.
+    - Connector Health Telemetry (`GET /api/v1/jobs/sources/health`): Probes all registered connectors and returns real latency, status (`HEALTHY`, `DEGRADED`, `UNCONFIGURED`, `DOWN`), and error details.
+  - UI Integration:
+    - Update `JobDiscoveryScreen.tsx` import dialog to support URL auto-fetch and deep-links for restricted boards.
+    - Update `SettingsScreen.tsx` with a Sources & Registry tab showing live connector telemetry and employer source manager.
+  - Tests:
+    - `tests/unit/test_ssrf_fetcher.py`: SSRF validation and attack vector tests.
+    - `tests/unit/test_aggregator_connectors.py`: Feed connectors contract tests with recorded fixtures.
+    - `tests/integration/test_manual_import_and_health.py`: URL import, deep links, and health endpoints.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 171 passed, 0 failed in 51.75s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 2.31s.
+- **Definition of Done for M8**: SSRF-safe fetcher, public feed connectors, manual URL/paste import engine, deep-links generator, and connector health telemetry fully verified.
+
+---
+
+### Milestone 9: Eligibility Gates & Explainable Scoring
+- **Scope**:
+  - Separate hard eligibility gates from soft scoring:
+    - Hard constraints: degree level, degree field, graduation year window, work authorization countries, mandatory certifications, mandatory skills, location/remote eligibility.
+    - Hard gate outcome: `PASS`, `FAIL`, or `NEEDS_REVIEW` (when mandatory requirement is unstated in candidate facts). Unknown mandatory requirements never auto-pass.
+    - Soft scoring (0–100): skills overlap (required vs preferred), experience fit (months vs required), role similarity, recency.
+  - Return explainable breakdown with human-readable reasons (`matched_skills`, `missing_skills`, `disqualifying_reasons`, `uncertain_reasons`).
+  - Wire scoring and eligibility into `POST /api/v1/applications/{id}/evaluate` and `EvaluationDB`.
+  - Frontend integration:
+    - Display eligibility gate badge (`PASS`, `FAIL`, `NEEDS_REVIEW`) and explainable score card on application/job details.
+    - Render matched vs missing skills chips, disqualifications, and uncertainty banners.
+
+

@@ -18,6 +18,8 @@ from jovsi.api.schemas import JobImportRequest, JobResponse
 from jovsi.domain.models import DegreeLevel, Fact, FactKind, FactProvenance, FactStatus, Job, JobRequirements, JobStatus
 from jovsi.services.geo import location_parser
 from jovsi.services.job_discovery import JobDiscoveryService, SourceRegistryService
+from jovsi.services.deep_links import DeepLinksService
+from jovsi.services.manual_import import ManualImportService, RestrictedBoardError, JobExtractionError
 
 
 
@@ -112,6 +114,48 @@ def import_job(data: JobImportRequest, db: Session = Depends(get_db)) -> JobResp
             )
     db.commit()
 
+    return JobResponse(
+        id=db_job.id,
+        source=db_job.source,
+        source_url=db_job.source_url,
+        canonical_url=db_job.canonical_url,
+        canonical_job_key=db_job.canonical_job_key,
+        company_norm=db_job.company_norm,
+        title_norm=db_job.title_norm,
+        description_clean=db_job.description_clean,
+        raw_sha256=db_job.raw_sha256,
+        requirements=db_job.requirements,
+        deadline_at=db_job.deadline_at,
+        status=JobStatus(db_job.status),
+        created_at=db_job.created_at,
+    )
+
+
+class UrlImportRequest(BaseModel):
+    url: str
+
+
+@router.post("/jobs/import/url", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
+def import_job_from_url(data: UrlImportRequest, db: Session = Depends(get_db)) -> JobResponse:
+    try:
+        extracted = ManualImportService.extract_from_url(data.url)
+    except RestrictedBoardError as r_err:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(r_err),
+        )
+    except JobExtractionError as e_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e_err),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to import from URL: {exc}",
+        )
+
+    db_job = ManualImportService.import_and_persist(extracted, db)
     return JobResponse(
         id=db_job.id,
         source=db_job.source,
@@ -835,6 +879,39 @@ def probe_employer_source(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+class SourceHealthTelemetry(BaseModel):
+    provider: str
+    name: str
+    category: str
+    status: str
+    latency_ms: Optional[float] = None
+    policy_status: str
+    error: Optional[str] = None
+    last_checked_at: str
+
+
+@router.get("/jobs/sources/health", response_model=List[SourceHealthTelemetry])
+def get_sources_health(db: Session = Depends(get_db)) -> List[SourceHealthTelemetry]:
+    return SourceRegistryService.check_all_sources_health(db=db)
+
+
+class DeepLinkResponseItem(BaseModel):
+    id: str
+    name: str
+    url: str
+    policy_status: str
+    policy_reason: str
+    supported_alternatives: List[str]
+
+
+@router.get("/jobs/deep-links", response_model=List[DeepLinkResponseItem])
+def get_deep_links(
+    query: str = Query("", description="Keyword search query"),
+    location: str = Query("", description="Geographic location filter"),
+) -> List[DeepLinkResponseItem]:
+    return DeepLinksService.generate_links(query=query, location=location)
 
 
 @router.post("/jobs/discover", response_model=DiscoverJobsResponse)

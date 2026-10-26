@@ -115,3 +115,31 @@
     - Active filter chips bar with single-click removal per chip and a "Clear all" button.
     - Unboxed, actionable empty state when 0 results match.
     - Full bidirectional URL state synchronization (`window.location.search`, `popstate` back/forward navigation, and deep-link restoration).
+
+## Decision 011: Aggregator Connectors, SSRF-Safe Fetcher, Manual Import Engine & Source Telemetry
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §5 mandates real, diverse job discovery including free feeds, multi-country aggregators, SSRF-safe URL import, manual paste import, deep links for scraping-restricted boards, and connector health telemetry.
+- **Decision**:
+  - Implemented SSRF-Safe Fetcher (`src/jovsi/adapters/ssrf.py`):
+    - Strict scheme restrictions (`http`, `https` only; rejects embedded credentials).
+    - DNS resolution checks destination IPs against blocked ranges: loopback (`127.0.0.0/8`, `::1`), private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), link-local (`169.254.0.0/16`, `fe80::/10`), carrier-grade NAT (`100.64.0.0/10`), and cloud metadata services (`169.254.169.254`, `metadata.google.internal`).
+    - Redirect validation enforcing destination IP checks on every hop, redirect limit (default 3), streaming body response size cap (default 1MB), and timeout (8.0s).
+  - Implemented Aggregator Connectors in `src/jovsi/services/job_discovery.py`:
+    - `JobicyConnector`: Remote jobs feed with rate-limit and query handling.
+    - `ArbeitnowConnector`: European & remote jobs feed with HTML entity cleaning and tag parsing.
+    - `AdzunaConnector`: Multi-country aggregator API with graceful credential handling (`UNCONFIGURED` / `BLOCKED: CREDENTIALS` status when missing keys, active multi-country search when configured).
+    - `RemotiveConnector`: Open remote tech jobs feed with tag and location parsing.
+    - Registered 8 connectors in `JobDiscoveryService.CONNECTORS`.
+  - Implemented Manual Import Engine (`src/jovsi/services/manual_import.py`):
+    - URL Import (`POST /api/v1/jobs/import/url`): Auto-detects ATS endpoints (Greenhouse, Lever, Ashby, SmartRecruiters) and extracts structured data from official APIs; parses Schema.org `JobPosting` JSON-LD and OpenGraph metadata on generic pages; raises HTTP 422 with actionable guidance for restricted anti-scraping boards (LinkedIn, Indeed, Naukri, Wellfound).
+    - Manual Text Import (`POST /api/v1/jobs/import`): Cleans descriptions using `UntrustedInputSanitizer`, indexes structured locations via `LocationParser` into `job_locations`, deduplicates with canonical keys.
+  - Implemented Deep Links Service (`src/jovsi/services/deep_links.py`):
+    - `GET /api/v1/jobs/deep-links?query=...&location=...`: Constructs pre-filtered search URLs for restricted boards with policy notes explaining why scraping is forbidden.
+  - Implemented Connector Health Telemetry:
+    - `GET /api/v1/jobs/sources/health`: Probes all registered connectors with live response latency measurement; reports `HEALTHY`, `DEGRADED`, `UNCONFIGURED`, or `DOWN`.
+  - Frontend Integration:
+    - Dual-mode "Import Job Posting" dialog in `JobDiscoveryScreen.tsx` (URL import + Paste text, defaulting to manual for E2E selector compatibility).
+    - Deep Search modal in `JobDiscoveryScreen.tsx` for restricted boards.
+    - Dedicated "Sources & Connectors" tab in `SettingsScreen.tsx` displaying live connector health telemetry cards, status badges, response latency, policy indicators, and "Probe All" action.
+

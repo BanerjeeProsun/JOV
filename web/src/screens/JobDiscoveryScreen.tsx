@@ -3,7 +3,7 @@ import { AnimatePresence, motion, LayoutGroup } from 'motion/react'
 import { Button } from '../components/ui/Button'
 import { Dialog } from '../components/ui/Dialog'
 import { api } from '../api/client'
-import type { Candidate, JobSource, JobSearchItem, JobSearchResponse, LocationHierarchyResponse } from '../types'
+import type { Candidate, DeepLinkItem, JobSource, JobSearchItem, JobSearchResponse, LocationHierarchyResponse } from '../types'
 import {
   Briefcase,
   Search,
@@ -20,6 +20,10 @@ import {
   ChevronDown,
   RotateCcw,
   Check,
+  Link as LinkIcon,
+  FileText,
+  AlertCircle,
+  Compass,
 } from 'lucide-react'
 import { spring, fadeUp } from '../design/motion'
 
@@ -119,6 +123,11 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   })
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [importMode, setImportMode] = useState<'url' | 'manual'>('manual')
+  const [importUrl, setImportUrl] = useState('')
+  const [showDeepLinksModal, setShowDeepLinksModal] = useState(false)
+  const [deepLinks, setDeepLinks] = useState<DeepLinkItem[]>([])
+  const [loadingDeepLinks, setLoadingDeepLinks] = useState(false)
 
   // Listen to browser Back/Forward navigation
   useEffect(() => {
@@ -311,6 +320,40 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     }
   }
 
+  const handleUrlImport = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!importUrl.trim()) return
+    setImporting(true)
+    setImportError(null)
+    try {
+      const imported = await api.importJobByUrl(importUrl.trim())
+      setShowImportModal(false)
+      setImportUrl('')
+      executeSearch(filters)
+      setSelectedJobId(imported.id)
+      setActionMessage(`Imported ${imported.title_norm} at ${imported.company_norm}`)
+      setTimeout(() => setActionMessage(null), 4000)
+    } catch (err: any) {
+      setImportError(err.message || 'Failed to extract posting from URL')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const handleOpenDeepLinks = async () => {
+    setShowDeepLinksModal(true)
+    setLoadingDeepLinks(true)
+    try {
+      const locStr = filters.cities[0] || filters.countries[0] || ''
+      const links = await api.getDeepLinks(filters.q, locStr)
+      setDeepLinks(links)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingDeepLinks(false)
+    }
+  }
+
   const handleStartApplication = async (item: JobSearchItem) => {
     setStartingAppId(item.id)
     try {
@@ -359,6 +402,14 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={handleOpenDeepLinks}
+          >
+            <Compass className="w-4 h-4" />
+            <span>Deep Search</span>
+          </Button>
           <Button
             variant="secondary"
             size="md"
@@ -766,12 +817,16 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
                     No roles match your exact criteria. Try broadening location filters, lowering your suitability score floor, or discovering new live roles.
                   </p>
                 </div>
-                <div className="flex items-center justify-center gap-3 pt-2">
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   {hasActiveFilters && (
                     <Button variant="secondary" size="sm" onClick={clearAllFilters}>
                       <span>Clear all filters</span>
                     </Button>
                   )}
+                  <Button variant="secondary" size="sm" onClick={handleOpenDeepLinks}>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Search external boards</span>
+                  </Button>
                   <Button variant="primary" size="sm" onClick={handleDiscoverLive} loading={discovering}>
                     <Sparkles className="w-3.5 h-3.5 text-pearl-1" />
                     <span>Discover live roles</span>
@@ -1013,99 +1068,244 @@ export const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         open={showImportModal}
         onClose={() => setShowImportModal(false)}
         title="Import Job Posting"
-        description="Provide posting details or a portal URL. Content will be sanitized through the ingestion pipeline."
+        description="Extract posting details directly from a supported URL or paste raw job specifications."
         maxWidth="max-w-xl"
       >
-        <form onSubmit={handleImportSubmit} className="space-y-4 mt-2">
-          {importError && (
-            <div className="p-3 rounded-lg border border-border/80 bg-bg-elev-1/80 text-text-2 text-xs">
-              {importError}
+        {/* Mode Selector Tabs */}
+        <div className="flex border-b border-border mb-4">
+          <button
+            type="button"
+            onClick={() => { setImportMode('url'); setImportError(null); }}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 -mb-px transition-colors ${
+              importMode === 'url'
+                ? 'border-pearl-1 text-text'
+                : 'border-transparent text-text-3 hover:text-text'
+            }`}
+          >
+            <LinkIcon className="w-3.5 h-3.5" />
+            <span>Import by URL</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setImportMode('manual'); setImportError(null); }}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 -mb-px transition-colors ${
+              importMode === 'manual'
+                ? 'border-pearl-1 text-text'
+                : 'border-transparent text-text-3 hover:text-text'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Paste Description</span>
+          </button>
+        </div>
+
+        {importError && (
+          <div className="p-3 mb-4 rounded-lg border border-border/80 bg-bg-elev-1/80 text-text-2 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-text-3 shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <span>{importError}</span>
+              {importError.includes('restricted by') && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setImportMode('manual')}
+                    className="text-pearl-1 hover:underline font-medium text-xs inline-flex items-center gap-1"
+                  >
+                    <span>Switch to Paste Description</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {importMode === 'url' ? (
+          <form onSubmit={handleUrlImport} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text">Job Posting URL</label>
+              <input
+                required
+                type="url"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                className="app-input font-mono text-xs"
+                placeholder="https://boards.greenhouse.io/... or https://jobs.lever.co/..."
+              />
+              <p className="text-[11px] text-text-3 mt-1">
+                Supports Greenhouse, Lever, Ashby, SmartRecruiters, and standard Schema.org JobPosting web pages. Enforces strict SSRF defense.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowImportModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={importing}
+                disabled={!importUrl.trim()}
+              >
+                Fetch & Import
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleImportSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text">Job Title</label>
+              <input
+                required
+                value={importForm.title}
+                onChange={(e) => setImportForm({ ...importForm, title: e.target.value })}
+                className="app-input"
+                placeholder="e.g. Senior Software Engineer"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text">Company Name</label>
+                <input
+                  required
+                  value={importForm.company_name}
+                  onChange={(e) => setImportForm({ ...importForm, company_name: e.target.value })}
+                  className="app-input"
+                  placeholder="e.g. Acme Corp"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text">Portal Key</label>
+                <input
+                  required
+                  value={importForm.portal_key}
+                  onChange={(e) => setImportForm({ ...importForm, portal_key: e.target.value })}
+                  className="app-input"
+                  placeholder="e.g. mock_hostile"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text">Source URL</label>
+              <input
+                required
+                value={importForm.source_url}
+                onChange={(e) => setImportForm({ ...importForm, source_url: e.target.value })}
+                className="app-input font-mono text-xs"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text">Required Skills (comma separated)</label>
+              <input
+                value={importForm.required_skills}
+                onChange={(e) => setImportForm({ ...importForm, required_skills: e.target.value })}
+                className="app-input"
+                placeholder="Python, React, SQL..."
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text">Job Description</label>
+              <textarea
+                rows={4}
+                value={importForm.raw_description}
+                onChange={(e) => setImportForm({ ...importForm, raw_description: e.target.value })}
+                className="app-input resize-none"
+                placeholder="Paste raw description..."
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowImportModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={importing}
+              >
+                Sanitize & Import
+              </Button>
+            </div>
+          </form>
+        )}
+      </Dialog>
+
+      {/* Deep Links Search Modal */}
+      <Dialog
+        open={showDeepLinksModal}
+        onClose={() => setShowDeepLinksModal(false)}
+        title="Deep Search on External Boards"
+        description="Search restricted recruitment platforms directly in your browser without scraping."
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-4 mt-2">
+          <p className="text-xs text-text-3 leading-relaxed">
+            These major recruitment platforms prohibit automated bot scraping. JOV.si constructs pre-filtered search links that open their official search directly with your current query and location:
+          </p>
+
+          {loadingDeepLinks ? (
+            <div className="py-8 text-center text-xs text-text-3">Loading external search links…</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {deepLinks.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-3.5 rounded-xl border border-border/70 bg-bg-elev-1/40 space-y-2 flex flex-col justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-text">{item.name}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-border/60 text-text-3">
+                        {item.policy_status}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-text-3 leading-snug">
+                      {item.policy_reason}
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-1 border border-border hover:bg-selected text-text transition-colors w-full justify-center"
+                    >
+                      <span>Search on {item.name}</span>
+                      <ExternalLink className="w-3 h-3 text-text-3" />
+                    </a>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-text">Job Title</label>
-            <input
-              required
-              value={importForm.title}
-              onChange={(e) => setImportForm({ ...importForm, title: e.target.value })}
-              className="app-input"
-              placeholder="e.g. Senior Software Engineer"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-text">Company Name</label>
-              <input
-                required
-                value={importForm.company_name}
-                onChange={(e) => setImportForm({ ...importForm, company_name: e.target.value })}
-                className="app-input"
-                placeholder="e.g. Mock Acme Corp"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-text">Portal Key</label>
-              <input
-                required
-                value={importForm.portal_key}
-                onChange={(e) => setImportForm({ ...importForm, portal_key: e.target.value })}
-                className="app-input"
-                placeholder="e.g. mock_hostile"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-text">Source URL</label>
-            <input
-              required
-              value={importForm.source_url}
-              onChange={(e) => setImportForm({ ...importForm, source_url: e.target.value })}
-              className="app-input font-mono text-xs"
-              placeholder="https://..."
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-text">Required Skills (comma separated)</label>
-            <input
-              value={importForm.required_skills}
-              onChange={(e) => setImportForm({ ...importForm, required_skills: e.target.value })}
-              className="app-input"
-              placeholder="Python, React, SQL..."
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-text">Job Description</label>
-            <textarea
-              rows={4}
-              value={importForm.raw_description}
-              onChange={(e) => setImportForm({ ...importForm, raw_description: e.target.value })}
-              className="app-input resize-none"
-              placeholder="Paste raw description..."
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+          <div className="flex items-center justify-between pt-4 border-t border-border">
+            <span className="text-[11px] text-text-3">
+              Found a role you like? Copy the posting and use <strong>Import Job Posting</strong>.
+            </span>
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setShowImportModal(false)}
+              onClick={() => setShowDeepLinksModal(false)}
             >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              loading={importing}
-            >
-              Sanitize & Import
+              Close
             </Button>
           </div>
-        </form>
+        </div>
       </Dialog>
     </div>
   )

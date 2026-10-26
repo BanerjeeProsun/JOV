@@ -63,6 +63,9 @@ def init_db(target_engine: Engine = engine) -> None:
                     (str(uuid.uuid4()), "smartrecruiters", "Visa", "visa", "untested", 0, now_iso, now_iso),
                     (str(uuid.uuid4()), "smartrecruiters", "McDonalds", "mcdonalds", "untested", 0, now_iso, now_iso),
                     (str(uuid.uuid4()), "jobicy", "Jobicy Remote", "jobicy", "untested", 0, now_iso, now_iso),
+                    (str(uuid.uuid4()), "arbeitnow", "Arbeitnow Feed", "arbeitnow", "untested", 0, now_iso, now_iso),
+                    (str(uuid.uuid4()), "adzuna", "Adzuna Aggregator", "adzuna", "unconfigured", 0, now_iso, now_iso),
+                    (str(uuid.uuid4()), "remotive", "Remotive Remote", "remotive", "untested", 0, now_iso, now_iso),
                     (str(uuid.uuid4()), "manual", "Direct Import", "manual", "verified_active", 0, now_iso, now_iso),
                 ]
                 for row in default_sources:
@@ -71,6 +74,22 @@ def init_db(target_engine: Engine = engine) -> None:
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         row,
                     )
+            else:
+                # Ensure new aggregator providers are seeded if missing
+                existing_providers = {r[0] for r in conn.exec_driver_sql("SELECT DISTINCT provider FROM job_sources").fetchall()}
+                now_iso = datetime.utcnow().isoformat()
+                new_agg_sources = [
+                    ("arbeitnow", "Arbeitnow Feed", "arbeitnow", "untested"),
+                    ("adzuna", "Adzuna Aggregator", "adzuna", "unconfigured"),
+                    ("remotive", "Remotive Remote", "remotive", "untested"),
+                ]
+                for p, emp, b_id, stat in new_agg_sources:
+                    if p not in existing_providers:
+                        conn.exec_driver_sql(
+                            "INSERT INTO job_sources (id, provider, employer_name, board_identifier, status, last_job_count, created_at, updated_at) "
+                            "VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+                            (str(uuid.uuid4()), p, emp, b_id, stat, now_iso, now_iso),
+                        )
         except Exception:
             pass
 

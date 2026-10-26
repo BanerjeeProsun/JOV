@@ -1,6 +1,7 @@
 import type {
   Application,
   Candidate,
+  DeepLinkItem,
   DiagnosticsData,
   DiscoveredJob,
   Fact,
@@ -11,6 +12,7 @@ import type {
   MasterResumeStatus,
   MetricsSummary,
   SettingsData,
+  SourceHealthTelemetry,
   User,
 } from '../types'
 
@@ -181,6 +183,18 @@ export const api = {
 
   // Jobs & Discovery
   getJobSources: () => request<JobSource[]>('/api/v1/jobs/sources'),
+  getSourceHealth: () => request<SourceHealthTelemetry[]>('/api/v1/jobs/sources/health'),
+  getDeepLinks: (query?: string, location?: string) => {
+    const qp = new URLSearchParams()
+    if (query) qp.append('query', query)
+    if (location) qp.append('location', location)
+    return request<DeepLinkItem[]>(`/api/v1/jobs/deep-links?${qp.toString()}`)
+  },
+  importJobByUrl: (url: string) =>
+    request<Job>('/api/v1/jobs/import/url', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
   discoverJobs: (params: {
     source?: string
     query?: string

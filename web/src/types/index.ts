@@ -290,6 +290,26 @@ export interface JobSource {
   provider?: string
 }
 
+export interface SourceHealthTelemetry {
+  provider: string
+  name: string
+  category: string
+  status: 'HEALTHY' | 'DEGRADED' | 'UNCONFIGURED' | 'DOWN'
+  latency_ms?: number | null
+  policy_status: string
+  error?: string | null
+  last_checked_at: string
+}
+
+export interface DeepLinkItem {
+  id: string
+  name: string
+  url: string
+  policy_status: string
+  policy_reason: string
+  supported_alternatives: string[]
+}
+
 export interface DiscoveredJob {
   id: string
   source: string

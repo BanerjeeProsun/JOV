@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Button } from '../components/ui/Button'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import type { SourceHealthTelemetry } from '../types'
 import {
   ShieldCheck,
   Save,
@@ -17,11 +18,12 @@ import {
   Key,
   LogOut,
   AlertCircle,
+  Globe,
 } from 'lucide-react'
 import { useTheme, type ThemeMode } from '../components/ThemeProvider'
 import { spring } from '../design/motion'
 
-type SettingsTab = 'appearance' | 'behavior' | 'integrations' | 'account' | 'about'
+type SettingsTab = 'appearance' | 'behavior' | 'sources' | 'integrations' | 'account' | 'about'
 
 export const SettingsScreen: React.FC = () => {
   const { mode, setMode } = useTheme()
@@ -55,6 +57,28 @@ export const SettingsScreen: React.FC = () => {
   const [dailyCapCompany, setDailyCapCompany] = useState(2)
   const [timezone, setTimezone] = useState('Asia/Kolkata')
   const [allowRealSubmission, setAllowRealSubmission] = useState(false)
+
+  // Sources Health State
+  const [sourceHealth, setSourceHealth] = useState<SourceHealthTelemetry[]>([])
+  const [loadingHealth, setLoadingHealth] = useState(false)
+
+  const loadSourceHealth = async () => {
+    setLoadingHealth(true)
+    try {
+      const data = await api.getSourceHealth()
+      setSourceHealth(data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingHealth(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'sources') {
+      loadSourceHealth()
+    }
+  }, [activeTab])
 
   const loadSettings = async () => {
     setLoading(true)
@@ -154,6 +178,7 @@ export const SettingsScreen: React.FC = () => {
   const TABS = [
     { id: 'appearance' as SettingsTab, label: 'Appearance', icon: Sun },
     { id: 'behavior' as SettingsTab, label: 'Application Behavior', icon: Sliders },
+    { id: 'sources' as SettingsTab, label: 'Sources & Connectors', icon: Globe },
     { id: 'integrations' as SettingsTab, label: 'Application Safeguards', icon: ShieldCheck },
     { id: 'account' as SettingsTab, label: 'Account & Identity', icon: UserCheck },
     { id: 'about' as SettingsTab, label: 'About JOV.si', icon: Info },
@@ -346,6 +371,89 @@ export const SettingsScreen: React.FC = () => {
                     <span>Save Application Settings</span>
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'sources' && (
+              <div className="border-t border-border/60 pt-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-text">Job Sources & Connector Telemetry</h3>
+                    <p className="text-xs text-text-3 mt-1">
+                      Real-time connectivity and status metrics across verified ATS, aggregator, and feed sources.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={loadSourceHealth}
+                    loading={loadingHealth}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Probe All</span>
+                  </Button>
+                </div>
+
+                {loadingHealth && sourceHealth.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-text-3">Probing source connectivity…</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {sourceHealth.map((src) => {
+                      const isHealthy = src.status === 'HEALTHY'
+                      const isUnconfigured = src.status === 'UNCONFIGURED'
+                      const isDegraded = src.status === 'DEGRADED'
+
+                      return (
+                        <div
+                          key={src.provider}
+                          className="p-4 rounded-xl border border-border/70 bg-bg-elev-1/30 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <span className="text-xs font-semibold text-text">{src.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] uppercase font-mono tracking-wider text-text-3">
+                                  {src.category}
+                                </span>
+                                <span className="text-border text-[10px]">•</span>
+                                <span className="text-[10px] font-mono text-text-3">
+                                  Policy: {src.policy_status}
+                                </span>
+                              </div>
+                            </div>
+
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono border ${
+                                isHealthy
+                                  ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10'
+                                  : isUnconfigured
+                                  ? 'border-border text-text-3 bg-bg-elev-1'
+                                  : isDegraded
+                                  ? 'border-amber-500/40 text-amber-400 bg-amber-500/10'
+                                  : 'border-rose-500/40 text-rose-400 bg-rose-500/10'
+                              }`}
+                            >
+                              {src.status}
+                              {src.latency_ms !== null && src.latency_ms !== undefined && ` (${src.latency_ms} ms)`}
+                            </span>
+                          </div>
+
+                          {src.error && (
+                            <p className="text-[11px] text-text-3 bg-bg-elev-1/80 p-2 rounded-lg border border-border/60">
+                              {src.error}
+                            </p>
+                          )}
+
+                          <div className="text-[10px] font-mono text-text-3 pt-1 border-t border-border flex items-center justify-between">
+                            <span>Checked</span>
+                            <span>{new Date(src.last_checked_at).toLocaleTimeString()}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
