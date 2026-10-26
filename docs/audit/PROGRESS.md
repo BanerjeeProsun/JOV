@@ -14,9 +14,9 @@
 | **M3** | Zombie-Code Removal & Mock Isolation | **COMPLETED** | 133 / 133 | `b7feb30` |
 | **M4** | Master-Resume Ingestion & Profile Verification | **COMPLETED** | 133 / 133 | `d04e4ab` |
 | **M5** | Source Registry & Real ATS Connectors | **COMPLETED** | 137 / 137 | `62bd27d` |
-| **M6** | Normalized Schema, Geo Dataset & Parser | **COMPLETED** | 143 / 143 | `[commit-hash]` |
-| **M7** | Search & Filters: Facets, URL State & UI Wiring | **IN PROGRESS** | - | - |
-| **M8** | Aggregator/Feed Connectors & Manual Import | **PENDING** | - | - |
+| **M6** | Normalized Schema, Geo Dataset & Parser | **COMPLETED** | 143 / 143 | `e9b4d4b` |
+| **M7** | Search & Filters: Facets, URL State & UI Wiring | **COMPLETED** | 150 / 150 | `[commit-hash]` |
+| **M8** | Aggregator/Feed Connectors & Manual Import | **IN PROGRESS** | - | - |
 | **M9** | Eligibility Gates & Explainable Scoring | **PENDING** | - | - |
 | **M10** | Job-Specific Resume Generation & Grounding | **PENDING** | - | - |
 | **M11** | Cover Letters with Provenance Grounding | **PENDING** | - | - |
@@ -188,3 +188,29 @@
   - `.\.venv\Scripts\pytest.exe -v` -> 143 passed, 0 failed in 32.62s.
   - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.06s.
 - **Definition of Done for M6**: Complete normalized geo schema, offline reference dataset, 100% benchmark precision parser, and database seeding verified.
+
+---
+
+### Milestone 7: Search & Filters: Facets, URL State & UI Wiring
+- **Scope**: Multi-dimensional job search API (`GET /api/v1/jobs/search`) with server-side faceted aggregation across countries, states, cities, work modes, and sources; location autocomplete endpoint (`GET /api/v1/jobs/facets/locations`); frontend search controls, multi-select popover filters, suitability score slider, active filter chips, unboxed empty state, and bidirectional URL state synchronization (`window.location.search` & `popstate`).
+- **Implemented & Verified**:
+  - `src/jovsi/api/routers/jobs.py`:
+    - Added `GET /api/v1/jobs/search` with support for `q`, `country` (multi), `admin1` (multi), `city` (multi), `work_mode` (multi), `remote_scope` (multi), `min_score`, `source` (multi), `sort`, `page`, `page_size`, `candidate_id`.
+    - Computed exact facets for countries, states, cities, work modes, and sources.
+    - Added `GET /api/v1/jobs/facets/locations` for hierarchical location autocomplete.
+  - `web/src/types/index.ts`: Added `JobSearchItem`, `JobLocation`, `CountryFacet`, `Admin1Facet`, `CityFacet`, `KeyCountFacet`, `JobSearchFacets`, `JobSearchResponse`, and `LocationHierarchyResponse`.
+  - `web/src/api/client.ts`: Added `searchJobs` and `getLocationFacets` methods.
+  - `web/src/screens/JobDiscoveryScreen.tsx`:
+    - Connected debounced keyword search input.
+    - Added Country and City multi-select popover filters with live counts and search.
+    - Added Work mode pill toggles (`Remote`, `Hybrid`, `On-site`) displaying live facet counts.
+    - Added Suitability score floor range slider (`≥ 0` to `95`).
+    - Added Active filter chips bar with single-click remove per chip and "Clear all" button.
+    - Added actionable empty state when 0 results match with reset guidance.
+    - Added bidirectional URL state synchronization (`readUrlFilters`, `writeUrlFilters`, `popstate` history navigation).
+  - `tests/integration/test_job_search_facets.py`: 7 integration tests verifying exact facet counts, multi-country union, country+city intersection, remote filtering, work mode + score combinations, pagination/sorting, and location autocomplete.
+  - `docs/audit/DECISIONS.md`: Recorded Decision 010.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 150 passed, 0 failed in 34.03s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.06s.
+- **Definition of Done for M7**: Server-side faceted aggregation, multi-dimensional search engine, frontend filter wiring, and URL state synchronization fully verified.

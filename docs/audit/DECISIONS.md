@@ -97,3 +97,21 @@
     - Splits multi-location postings ("Hybrid: London or Manchester" -> 2 locations) and deduplicates synonyms ("Bengaluru / Bangalore" -> 1 location).
   - Integrated idempotent database seeding (`seed_geo_database`) on startup via `init_db()`.
   - Wired `JobLocationDB` generation into `POST /api/v1/jobs/import` and `POST /api/v1/jobs/discover`.
+
+## Decision 010: Multi-Dimensional Job Search, Faceted Aggregations & URL State Synchronization
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Job discovery was previously limited to basic client-side array filtering without server-side facets, geographic multi-select, work mode categorization, score floors, or shareable/bookmarkable URL state.
+- **Decision**:
+  - Implemented `GET /api/v1/jobs/search` with parameters `q`, `country` (multi), `admin1` (multi), `city` (multi), `work_mode` (multi), `remote_scope` (multi), `min_score`, `source` (multi), `sort`, `page`, and `page_size`.
+  - Implemented multi-location union matching and pure remote/hybrid routing.
+  - Implemented computed facets returning exact aggregate counts for countries, states, cities, work modes, and sources.
+  - Added `GET /api/v1/jobs/facets/locations` providing hierarchical location autocomplete.
+  - Wired `JobDiscoveryScreen.tsx` with:
+    - Search input (debounced).
+    - Multi-select Country and City popover filters with search and live counts.
+    - Work mode pill toggles (`Remote`, `Hybrid`, `On-site`) displaying live facet counts.
+    - Suitability score floor range slider (`≥ 0` to `95`).
+    - Active filter chips bar with single-click removal per chip and a "Clear all" button.
+    - Unboxed, actionable empty state when 0 results match.
+    - Full bidirectional URL state synchronization (`window.location.search`, `popstate` back/forward navigation, and deep-link restoration).

@@ -5,6 +5,8 @@ import type {
   DiscoveredJob,
   Fact,
   Job,
+  JobSearchResponse,
+  LocationHierarchyResponse,
   JobSource,
   MasterResumeStatus,
   MetricsSummary,
@@ -194,6 +196,42 @@ export const api = {
         body: JSON.stringify(params),
       }
     ),
+  searchJobs: (params?: {
+    q?: string
+    country?: string[]
+    admin1?: string[]
+    city?: string[]
+    work_mode?: string[]
+    remote_scope?: string[]
+    min_score?: number
+    source?: string[]
+    sort?: string
+    page?: number
+    page_size?: number
+    candidate_id?: string
+  }) => {
+    const qp = new URLSearchParams()
+    if (params?.q) qp.append('q', params.q)
+    if (params?.country) params.country.forEach((c) => qp.append('country', c))
+    if (params?.admin1) params.admin1.forEach((a) => qp.append('admin1', a))
+    if (params?.city) params.city.forEach((c) => qp.append('city', c))
+    if (params?.work_mode) params.work_mode.forEach((w) => qp.append('work_mode', w))
+    if (params?.remote_scope) params.remote_scope.forEach((r) => qp.append('remote_scope', r))
+    if (params?.min_score !== undefined && params.min_score !== null) qp.append('min_score', String(params.min_score))
+    if (params?.source) params.source.forEach((s) => qp.append('source', s))
+    if (params?.sort) qp.append('sort', params.sort)
+    if (params?.page) qp.append('page', String(params.page))
+    if (params?.page_size) qp.append('page_size', String(params.page_size))
+    if (params?.candidate_id) qp.append('candidate_id', params.candidate_id)
+    return request<JobSearchResponse>(`/api/v1/jobs/search?${qp.toString()}`)
+  },
+  getLocationFacets: (params?: { country?: string; admin1?: string; q?: string }) => {
+    const qp = new URLSearchParams()
+    if (params?.country) qp.append('country', params.country)
+    if (params?.admin1) qp.append('admin1', params.admin1)
+    if (params?.q) qp.append('q', params.q)
+    return request<LocationHierarchyResponse>(`/api/v1/jobs/facets/locations?${qp.toString()}`)
+  },
   getJobs: (params?: { status?: string; company?: string; limit?: number }) => {
     const q = new URLSearchParams()
     if (params?.status) q.append('status', params.status)

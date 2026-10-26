@@ -89,6 +89,83 @@ export interface Job {
   created_at?: string
 }
 
+export interface JobLocation {
+  country_code?: string
+  country_name?: string
+  admin1_code?: string
+  admin1_name?: string
+  city_id?: string
+  city_name?: string
+  work_mode: string
+  remote_scope: string
+  raw_location: string
+}
+
+export interface JobSearchItem {
+  id: string
+  source: string
+  source_url: string
+  canonical_url: string
+  company_name: string
+  title: string
+  description: string
+  locations: JobLocation[]
+  primary_location: string
+  work_modes: string[]
+  required_skills: string[]
+  match_score?: number
+  created_at: string
+}
+
+export interface CountryFacet {
+  code: string
+  name: string
+  count: number
+}
+
+export interface Admin1Facet {
+  country_code: string
+  admin1_code: string
+  name: string
+  count: number
+}
+
+export interface CityFacet {
+  id: string
+  name: string
+  country_code: string
+  count: number
+}
+
+export interface KeyCountFacet {
+  key: string
+  label: string
+  count: number
+}
+
+export interface JobSearchFacets {
+  countries: CountryFacet[]
+  admin1: Admin1Facet[]
+  cities: CityFacet[]
+  work_modes: KeyCountFacet[]
+  sources: KeyCountFacet[]
+}
+
+export interface JobSearchResponse {
+  items: JobSearchItem[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+  facets: JobSearchFacets
+}
+
+export interface LocationHierarchyResponse {
+  countries: CountryFacet[]
+  admin1: Admin1Facet[]
+  cities: CityFacet[]
+}
+
 export interface GateCheck {
   check_id: number
   name: string
