@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Card } from '../components/Card'
-import { Button } from '../components/Button'
+import { motion, LayoutGroup } from 'motion/react'
+import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../api/client'
 import type { Application } from '../types'
@@ -13,9 +13,11 @@ import {
   ShieldCheck,
   Send,
   CheckCircle2,
-  Building,
+  Building2,
   User,
+  X,
 } from 'lucide-react'
+import { spring } from '../design/motion'
 
 interface ApplicationQueueScreenProps {
   onSelectApplication: (appId: string) => void
@@ -101,221 +103,332 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
   const filteredApps = applications.filter((app) => {
     if (filterState === 'ALL') return true
     const rawState = (app as any).state || app.current_state
+    if (filterState === 'ACTION') {
+      return (
+        rawState === 'DISCOVERED' ||
+        rawState === 'SHORTLISTED' ||
+        rawState === 'RESUME_GENERATED' ||
+        rawState === 'READY_FOR_REVIEW' ||
+        rawState === 'APPROVAL_REQUESTED'
+      )
+    }
     if (filterState === 'REVIEW') {
       return rawState === 'READY_FOR_REVIEW' || rawState === 'APPROVAL_REQUESTED'
     }
     if (filterState === 'APPROVED') {
       return rawState === 'APPROVED' || rawState === 'APPROVED_PENDING_SUBMISSION'
     }
-    if (filterState === 'APPLIED') {
-      return rawState === 'APPLIED_CONFIRMED'
-    }
-    if (filterState === 'UNCERTAIN') {
-      return rawState === 'SUBMISSION_UNCERTAIN'
+    if (filterState === 'COMPLETED') {
+      return rawState === 'APPLIED_CONFIRMED' || rawState === 'SUBMISSION_UNCERTAIN'
     }
     return true
   })
 
+  // Group applications by urgency
+  const needsAction = filteredApps.filter((app) => {
+    const s = (app as any).state || app.current_state
+    return s === 'READY_FOR_REVIEW' || s === 'APPROVAL_REQUESTED' || s === 'DISCOVERED' || s === 'SHORTLISTED' || s === 'RESUME_GENERATED'
+  })
+
+  const inProgress = filteredApps.filter((app) => {
+    const s = (app as any).state || app.current_state
+    return s === 'APPROVED' || s === 'SUBMITTING' || s === 'APPROVED_PENDING_SUBMISSION' || s === 'EVALUATING_ELIGIBILITY'
+  })
+
+  const waiting = filteredApps.filter((app) => {
+    const s = (app as any).state || app.current_state
+    return s === 'APPLIED_CONFIRMED' || s === 'SUBMISSION_UNCERTAIN' || s === 'REJECTED' || s === 'APPLICATION_FAILED'
+  })
+
+  const renderAppCard = (app: Application) => {
+    const rawState = (app as any).state || app.current_state || 'DISCOVERED'
+    const isActing = actionLoadingId === app.id
+
+    const canEvaluate = rawState === 'DISCOVERED'
+    const canGenerateResume = rawState === 'SHORTLISTED'
+    const canRunGate = rawState === 'RESUME_GENERATED'
+    const canReview = rawState === 'READY_FOR_REVIEW' || rawState === 'APPROVAL_REQUESTED'
+    const canSubmit = rawState === 'APPROVED'
+
+    const candidateName =
+      (app as any).candidate_name || app.candidate?.display_name || 'Active Candidate'
+    const roleTitle =
+      (app as any).role_title || app.job?.role_title || (app as any).title || 'Senior Software Engineer'
+    const companyName =
+      (app as any).company_name || app.job?.company_name || (app as any).company || 'Mock Acme Corp'
+
+    // Determine blocking reason
+    let blockingLabel = ''
+    if (canEvaluate) blockingLabel = 'Requires eligibility scoring against job requirements'
+    else if (canGenerateResume) blockingLabel = 'Tailored resume draft ready for factual synthesis'
+    else if (canRunGate) blockingLabel = 'Synthesized document awaits 15-point validation pass'
+    else if (canReview) blockingLabel = 'Validation passed. Candidate signature required'
+    else if (canSubmit) blockingLabel = 'Approved by candidate. Ready for portal submission'
+    else if (rawState === 'APPLIED_CONFIRMED') blockingLabel = 'Submission independently verified by oracle'
+    else if (rawState === 'SUBMISSION_UNCERTAIN') blockingLabel = 'Sent. Awaiting oracle audit confirmation'
+
+    return (
+      <motion.div
+        layout
+        key={app.id}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={spring.smooth}
+        className="rounded-card border border-border bg-bg-elev-1 p-6 shadow-1 hover:border-border-strong transition-colors"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2.5 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="text-base font-semibold text-text tracking-tight">
+                {roleTitle}
+              </h3>
+              <StatusBadge state={rawState} />
+            </div>
+
+            <div className="flex items-center gap-3 text-xs text-text-2">
+              <span className="flex items-center gap-1.5 font-medium text-text">
+                <Building2 className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
+                {companyName}
+              </span>
+              <span className="opacity-30">·</span>
+              <span className="flex items-center gap-1.5 text-text-3">
+                <User className="w-3.5 h-3.5 text-text-3" strokeWidth={1.5} />
+                {candidateName}
+              </span>
+            </div>
+
+            {/* Block reason notice */}
+            {blockingLabel && (
+              <p className="text-xs text-text-3 font-mono pt-1">
+                {blockingLabel}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 pt-1 text-[11px] font-mono text-text-3">
+              <span>ID: {app.id.slice(0, 8)}</span>
+              <span>·</span>
+              <span>v{app.version}</span>
+              {(app as any).score !== undefined && (app as any).score !== null && (
+                <>
+                  <span>·</span>
+                  <span className="text-ok font-medium">
+                    Suitability: {(app as any).score}/100
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Single Clear Primary Action */}
+          <div className="flex items-center gap-3 shrink-0">
+            {canEvaluate && (
+              <Button
+                variant="primary"
+                size="md"
+                loading={isActing}
+                onClick={() => handleRunEvaluation(app.id)}
+              >
+                <Play className="w-4 h-4" />
+                <span>Run Evaluation</span>
+              </Button>
+            )}
+
+            {canGenerateResume && (
+              <Button
+                variant="primary"
+                size="md"
+                loading={isActing}
+                onClick={() => handleGenerateResume(app.id)}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Generate Resume</span>
+              </Button>
+            )}
+
+            {canRunGate && (
+              <Button
+                variant="primary"
+                size="md"
+                loading={isActing}
+                onClick={() => handleRunGate(app.id)}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Execute Gate</span>
+              </Button>
+            )}
+
+            {canReview && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => onSelectApplication(app.id)}
+              >
+                <Eye className="w-4 h-4" />
+                <span>Review Package</span>
+              </Button>
+            )}
+
+            {canSubmit && (
+              <Button
+                variant="primary"
+                size="md"
+                loading={isActing}
+                onClick={() => handleSubmit(app.id)}
+              >
+                <Send className="w-4 h-4" />
+                <span>Submit to Portal</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    )
+  }
+
   return (
     <div className="screen-page space-y-8">
       {/* Editorial Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-            Progressive Pipeline
-          </span>
-          <h1 className="page-title">
-            Application Queue
-          </h1>
+          <p className="page-kicker">Progressive Pipeline</p>
+          <h1 className="page-title">Application Queue</h1>
           <p className="page-intro">
             Active applications moving step-by-step through deterministic eligibility, tailored document synthesis, and 15-point validation.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={loadApplications} loading={loading}>
-            <RefreshCw className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-3 shrink-0">
+          <Button variant="secondary" size="md" onClick={loadApplications} loading={loading}>
+            <RefreshCw className="w-4 h-4" />
             <span>Refresh Queue</span>
           </Button>
         </div>
       </div>
 
+      {/* Feedback Alert */}
       {feedback && (
-        <div className="p-4 rounded-apple-md bg-apple-blue-subtle border border-apple-blue/20 text-text-primary text-xs flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-apple-blue flex-shrink-0" />
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 rounded-card border border-border bg-bg-elev-1 text-xs text-text flex items-center justify-between shadow-1"
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
             <span className="font-medium">{feedback}</span>
           </div>
           <button
             onClick={() => setFeedback(null)}
-            className="text-text-tertiary hover:text-text-primary"
+            className="p-1 rounded-full text-text-3 hover:text-text"
           >
-            ×
+            <X className="w-4 h-4" />
           </button>
-        </div>
+        </motion.div>
       )}
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-1 border-b border-border-subtle pb-3 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-border pb-3 overflow-x-auto [scrollbar-width:none]">
         {[
-          { id: 'ALL', label: `All Applications (${applications.length})` },
-          { id: 'REVIEW', label: 'Review Required' },
-          { id: 'APPROVED', label: 'Approved' },
-          { id: 'APPLIED', label: 'Confirmed Applied' },
-          { id: 'UNCERTAIN', label: 'Uncertain' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setFilterState(tab.id)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-              filterState === tab.id
-                ? 'bg-text-primary text-white shadow-sm'
-                : 'text-text-secondary hover:text-text-primary hover:bg-black/5'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+          { id: 'ALL', label: `All (${applications.length})` },
+          { id: 'ACTION', label: `Needs Action (${needsAction.length})` },
+          { id: 'REVIEW', label: `Review Required` },
+          { id: 'APPROVED', label: `Approved` },
+          { id: 'COMPLETED', label: `Completed` },
+        ].map((tab) => {
+          const active = filterState === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setFilterState(tab.id)}
+              className={`relative px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                active ? 'text-text' : 'text-text-3 hover:text-text'
+              }`}
+            >
+              {active && (
+                <motion.span
+                  layoutId="queue-filter-pill"
+                  className="absolute inset-0 rounded-full bg-selected border border-border"
+                  transition={spring.layout}
+                />
+              )}
+              <span className="relative z-10">{tab.label}</span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* Queue List */}
+      {/* Queue Content Grouped by Urgency */}
       {loading ? (
-        <div className="text-center py-16 text-text-tertiary text-sm animate-pulse">
-          Loading applications...
+        <div className="space-y-4">
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="h-28 rounded-card bg-bg-elev-1 border border-border relative overflow-hidden"
+            >
+              <div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent"
+                style={{ animation: 'pearl-shimmer 2.2s infinite ease-in-out' }}
+              />
+            </div>
+          ))}
         </div>
       ) : filteredApps.length === 0 ? (
-        <Card className="text-center py-16 bg-surface">
-          <Layers className="w-12 h-12 text-text-tertiary mx-auto mb-3 opacity-40" />
-          <h3 className="text-base font-semibold text-text-primary">Queue is empty</h3>
-          <p className="text-xs text-text-secondary mt-1 max-w-sm mx-auto">
-            No active applications in this stage. Go to Job Discovery to select an opportunity.
+        <div className="rounded-card border border-border bg-bg-elev-1 p-16 text-center text-text-3">
+          <Layers className="w-10 h-10 mx-auto mb-3 opacity-40" strokeWidth={1.5} />
+          <p className="text-sm font-medium text-text">Queue is currently clear</p>
+          <p className="text-xs text-text-3 mt-1">
+            No active applications in this stage. Browse Job Discovery to select an opportunity.
           </p>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredApps.map((app) => {
-            const rawState = (app as any).state || app.current_state
-            const isActing = actionLoadingId === app.id
-            const canEvaluate = rawState === 'DISCOVERED'
-            const canGenerateResume = rawState === 'SHORTLISTED'
-            const canRunGate = rawState === 'RESUME_GENERATED'
-            const canReview = rawState === 'READY_FOR_REVIEW' || rawState === 'APPROVAL_REQUESTED'
-            const canSubmit = rawState === 'APPROVED'
-
-            const candidateName =
-              (app as any).candidate_name || app.candidate?.display_name || 'Active Candidate'
-            const roleTitle =
-              (app as any).role_title || app.job?.role_title || (app as any).title || 'Senior Software Engineer'
-            const companyName =
-              (app as any).company_name || app.job?.company_name || (app as any).company || 'Mock Acme Corp'
-
-            return (
-              <Card
-                key={app.id}
-                className="p-6 bg-surface hover:shadow-apple-floating transition-all"
-              >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-semibold text-text-primary tracking-tight">
-                        {roleTitle}
-                      </h3>
-                      <StatusBadge state={rawState} />
-                    </div>
-
-                    <div className="flex items-center gap-4 text-xs text-text-secondary">
-                      <span className="flex items-center gap-1 font-medium">
-                        <Building className="w-3.5 h-3.5 text-text-tertiary" />
-                        {companyName}
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <User className="w-3.5 h-3.5 text-text-tertiary" />
-                        {candidateName}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 pt-1 text-[11px] font-mono text-text-tertiary">
-                      <span>ID: {app.id.slice(0, 8)}</span>
-                      <span>•</span>
-                      <span>Version: {app.version}</span>
-                      {(app as any).score !== undefined && (app as any).score !== null && (
-                        <>
-                          <span>•</span>
-                          <span className="text-success-green font-medium">
-                            Score: {(app as any).score}/100
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Progressive Actions */}
-                  <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
-                    {canEvaluate && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        loading={isActing}
-                        onClick={() => handleRunEvaluation(app.id)}
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                        <span>Run Evaluation</span>
-                      </Button>
-                    )}
-
-                    {canGenerateResume && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        loading={isActing}
-                        onClick={() => handleGenerateResume(app.id)}
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Generate Resume</span>
-                      </Button>
-                    )}
-
-                    {canRunGate && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        loading={isActing}
-                        onClick={() => handleRunGate(app.id)}
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Execute Gate</span>
-                      </Button>
-                    )}
-
-                    {canReview && (
-                      <Button
-                        variant="coral"
-                        size="sm"
-                        onClick={() => onSelectApplication(app.id)}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Review Package</span>
-                      </Button>
-                    )}
-
-                    {canSubmit && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        loading={isActing}
-                        onClick={() => handleSubmit(app.id)}
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Submit to Portal</span>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
         </div>
+      ) : (
+        <LayoutGroup>
+          <div className="space-y-8">
+            {/* Needs Action Group */}
+            {needsAction.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="w-2 h-2 rounded-full bg-warn" />
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2">
+                    Needs Your Action ({needsAction.length})
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {needsAction.map(renderAppCard)}
+                </div>
+              </div>
+            )}
+
+            {/* In Progress Group */}
+            {inProgress.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="w-2 h-2 rounded-full bg-info" />
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2">
+                    In Progress ({inProgress.length})
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {inProgress.map(renderAppCard)}
+                </div>
+              </div>
+            )}
+
+            {/* Waiting / Completed Group */}
+            {waiting.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="w-2 h-2 rounded-full bg-ok" />
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-2">
+                    Completed & Waiting ({waiting.length})
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {waiting.map(renderAppCard)}
+                </div>
+              </div>
+            )}
+          </div>
+        </LayoutGroup>
       )}
     </div>
   )

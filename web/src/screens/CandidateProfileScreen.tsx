@@ -1,22 +1,26 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Card } from '../components/Card'
-import { Button } from '../components/Button'
+import { motion } from 'motion/react'
+import { Button } from '../components/ui/Button'
+import { Dialog } from '../components/ui/Dialog'
 import { api } from '../api/client'
 import type { Candidate, Fact, MasterResumeStatus } from '../types'
 import {
   FileText,
   Upload,
   CheckCircle2,
-  Clock,
-  AlertCircle,
-  Download,
   Trash2,
   Plus,
   RefreshCw,
-  Edit2,
-  X,
   User,
+  GraduationCap,
+  Briefcase,
+  Code2,
+  ShieldCheck,
+  X,
 } from 'lucide-react'
+import { spring } from '../design/motion'
+
+type ProfileSection = 'basics' | 'experience' | 'education' | 'skills' | 'work_auth' | 'advanced'
 
 export const CandidateProfileScreen: React.FC = () => {
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null)
@@ -24,13 +28,11 @@ export const CandidateProfileScreen: React.FC = () => {
   const [facts, setFacts] = useState<Fact[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
+  const [activeSection, setActiveSection] = useState<ProfileSection>('basics')
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [actingFactId, setActingFactId] = useState<string | null>(null)
 
-  // Edit / Add Fact Modal
-  const [editingFact, setEditingFact] = useState<Fact | null>(null)
-  const [editValueText, setEditValueText] = useState('')
+  // Add Fact Modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [newFactKind, setNewFactKind] = useState('SKILL')
   const [newFactKey, setNewFactKey] = useState('')
@@ -70,7 +72,7 @@ export const CandidateProfileScreen: React.FC = () => {
       const result = await api.uploadMasterResume(activeCandidate.id, file)
       setMessage({
         type: 'success',
-        text: `Master resume successfully parsed! Extracted ${result.total_facts_extracted} proposed facts. Please review and confirm below.`,
+        text: `Master resume parsed: ${result.total_facts_extracted} facts extracted with provenance.`,
       })
       await loadData()
     } catch (err: any) {
@@ -90,84 +92,16 @@ export const CandidateProfileScreen: React.FC = () => {
     await uploadFile(e.dataTransfer.files?.[0])
   }
 
-  const handleConfirmFact = async (factId: string) => {
+  const handleDeleteFact = async (factId: string) => {
     setActingFactId(factId)
     try {
-      await api.confirmFact(factId)
-      if (activeCandidate) {
-        const updated = await api.getCandidateFacts(activeCandidate.id)
-        setFacts(updated)
-        const status = await api.getMasterResumeStatus(activeCandidate.id)
-        setResumeStatus(status)
-      }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message })
-    } finally {
-      setActingFactId(null)
-    }
-  }
-
-  const handleRejectFact = async (factId: string) => {
-    setActingFactId(factId)
-    try {
-      await api.rejectFact(factId)
-      if (activeCandidate) {
-        const updated = await api.getCandidateFacts(activeCandidate.id)
-        setFacts(updated)
-        const status = await api.getMasterResumeStatus(activeCandidate.id)
-        setResumeStatus(status)
-      }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message })
-    } finally {
-      setActingFactId(null)
-    }
-  }
-
-  const handleConfirmAll = async () => {
-    if (!activeCandidate) return
-    setLoading(true)
-    try {
-      await api.confirmAllFacts(activeCandidate.id)
-      setMessage({ type: 'success', text: 'All proposed facts have been verified and set to ACTIVE.' })
+      await api.deleteFact(factId)
+      setMessage({ type: 'success', text: 'Fact successfully deleted.' })
       await loadData()
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message })
+      setMessage({ type: 'error', text: err.message || 'Delete failed.' })
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteDocument = async () => {
-    if (!resumeStatus?.document_id) return
-    if (!confirm('Are you sure you want to delete the active master resume document?')) return
-
-    try {
-      await api.deleteDocument(resumeStatus.document_id)
-      setMessage({ type: 'success', text: 'Master resume document deleted.' })
-      await loadData()
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message })
-    }
-  }
-
-  const handleSaveEditFact = async () => {
-    if (!editingFact) return
-    try {
-      let parsedValue: any
-      try {
-        parsedValue = JSON.parse(editValueText)
-      } catch {
-        parsedValue = { name: editValueText }
-      }
-      await api.updateFact(editingFact.id, { value: parsedValue })
-      setEditingFact(null)
-      if (activeCandidate) {
-        const updated = await api.getCandidateFacts(activeCandidate.id)
-        setFacts(updated)
-      }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message })
+      setActingFactId(null)
     }
   }
 
@@ -184,460 +118,385 @@ export const CandidateProfileScreen: React.FC = () => {
       await api.addCandidateFact(activeCandidate.id, {
         kind: newFactKind,
         key: newFactKey || newFactKind.toLowerCase(),
-        value: typeof parsedValue === 'object' ? parsedValue : { text: parsedValue },
+        value: parsedValue,
       })
       setShowAddModal(false)
       setNewFactKey('')
       setNewFactValue('')
-      const updated = await api.getCandidateFacts(activeCandidate.id)
-      setFacts(updated)
+      setMessage({ type: 'success', text: 'New candidate fact added.' })
+      await loadData()
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message })
+      setMessage({ type: 'error', text: err.message || 'Failed to add fact.' })
     }
   }
 
-  const proposedCount = facts.filter((f) => f.status === 'PROPOSED').length
-  const activeCount = facts.filter((f) => f.status === 'ACTIVE').length
+  // Categorize facts
+  const contactFacts = facts.filter((f) => f.kind === 'CONTACT')
+  const experienceFacts = facts.filter((f) => f.kind === 'EXPERIENCE')
+  const educationFacts = facts.filter((f) => f.kind === 'EDUCATION')
+  const skillFacts = facts.filter((f) => f.kind === 'SKILL')
+  const authFacts = facts.filter((f) => f.kind === 'WORK_AUTH')
 
-  const filteredFacts = facts.filter((f) => {
-    if (selectedCategory === 'ALL') return true
-    return f.kind === selectedCategory
-  })
+  const SECTIONS = [
+    { id: 'basics' as ProfileSection, label: 'Basics & Identity', icon: User, count: contactFacts.length },
+    { id: 'experience' as ProfileSection, label: 'Experience', icon: Briefcase, count: experienceFacts.length },
+    { id: 'education' as ProfileSection, label: 'Education', icon: GraduationCap, count: educationFacts.length },
+    { id: 'skills' as ProfileSection, label: 'Skills & Competencies', icon: Code2, count: skillFacts.length },
+    { id: 'work_auth' as ProfileSection, label: 'Work Authorization', icon: ShieldCheck, count: authFacts.length },
+    { id: 'advanced' as ProfileSection, label: 'Advanced Data', icon: FileText, count: facts.length },
+  ]
 
   return (
-    <div className="screen-page">
-      {/* Title & Introduction */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+    <div className="screen-page space-y-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-            Identity & Provenance
-          </span>
-          <h1 className="page-title">
-            Candidate Profile & Fact Graph
-          </h1>
+          <p className="page-kicker">Strict Provenance</p>
+          <h1 className="page-title">Candidate Profile & Fact Graph</h1>
           <p className="page-intro">
-            The factual source of truth for all job-specific resumes. Upload your master resume to extract and verify your qualifications.
+            Structured candidate records extracted from your verified master resume. Every fact is audited and immutable during application packaging.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            loading={uploading}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Import Master Resume</span>
+        <div className="flex items-center gap-3 shrink-0">
+          <Button variant="secondary" size="md" onClick={loadData} loading={loading}>
+            <RefreshCw className="w-4 h-4" />
+            <span>Sync Graph</span>
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.docx,.doc,.txt,.md"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Fact Manually</span>
+          <Button variant="primary" size="md" onClick={() => setShowAddModal(true)}>
+            <Plus className="w-4 h-4" />
+            <span>Add Custom Fact</span>
           </Button>
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Message Banner */}
       {message && (
         <div
-          className={`mb-6 p-4 rounded-apple-md text-sm flex items-start justify-between border ${
+          className={`p-4 rounded-card border text-sm flex items-center justify-between ${
             message.type === 'success'
-              ? 'bg-success-subtle border-success-green/20 text-success-green'
-              : 'bg-danger-subtle border-danger-red/20 text-danger-red'
+              ? 'bg-ok-subtle border-ok/20 text-ok'
+              : 'bg-err-subtle border-err/20 text-err'
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {message.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
             ) : (
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <X className="w-4 h-4 shrink-0" />
             )}
             <span>{message.text}</span>
           </div>
-          <button onClick={() => setMessage(null)} className="opacity-70 hover:opacity-100">
+          <button onClick={() => setMessage(null)} className="p-1 hover:opacity-70">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Master Resume Card */}
-      <div className="mb-10">
-        {resumeStatus?.has_master_resume ? (
-          <Card className="bg-surface p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-text-primary text-base">
-                      {resumeStatus.filename || 'Master_Resume.pdf'}
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-success-subtle text-success-green border border-success-green/20">
-                      Active Master Resume
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-text-tertiary">
-                    <span>
-                      SHA-256:{' '}
-                      <code className="font-mono bg-black/5 px-1 py-0.5 rounded">
-                        {resumeStatus.sha256?.slice(0, 16)}...
-                      </code>
-                    </span>
-                    <span>•</span>
-                    <span>{resumeStatus.total_facts} extracted facts</span>
-                    <span>•</span>
-                    <span>
-                      Uploaded {resumeStatus.uploaded_at ? new Date(resumeStatus.uploaded_at).toLocaleDateString() : 'Recently'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+      {/* Master Resume Upload Area */}
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+        className="rounded-card border-2 border-dashed border-border bg-bg-elev-1 p-8 text-center hover:border-border-strong transition-colors relative overflow-hidden"
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.txt"
+          onChange={handleFileUpload}
+          className="hidden"
+          id="resume-file-input"
+        />
 
-              <div className="flex items-center gap-2 self-start md:self-auto">
-                <a
-                  href={`/api/v1/documents/${resumeStatus.document_id}/download`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-surface text-text-primary border border-border-subtle hover:bg-surface-hover transition-all shadow-apple-button"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Document</span>
-                </a>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-black/5 transition-all"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Replace</span>
-                </button>
-                <button
-                  onClick={handleDeleteDocument}
-                  className="p-1.5 rounded-full text-text-tertiary hover:text-danger-red hover:bg-danger-subtle transition-all"
-                  title="Delete Document"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </Card>
-        ) : (
-          <Card
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
-            className="border-2 border-dashed border-border-strong hover:border-text-primary p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-surface/50 hover:bg-surface"
-          >
-            <div className="w-14 h-14 rounded-full bg-black/5 text-text-primary flex items-center justify-center mb-4">
-              <Upload className="w-6 h-6" />
-            </div>
-            <h3 className="font-semibold text-text-primary text-lg">
-              Import Master Resume
-            </h3>
-            <p className="text-text-secondary text-sm max-w-md mt-1 mb-4">
-              Upload your actual master resume (PDF, DOCX, or TXT). JOV.si extracts education, experience, projects, skills, and contact facts with strict provenance.
-            </p>
-            <Button variant="primary" size="sm" loading={uploading}>
-              Choose Resume File
-            </Button>
-            <span className="text-xs text-text-tertiary mt-3">
-              Drop a searchable PDF, DOCX, or TXT here, or choose a file · up to 10MB
-            </span>
-          </Card>
-        )}
-      </div>
-
-      {/* Proposed Facts Action Bar */}
-      {proposedCount > 0 && (
-        <div className="mb-6 p-4 rounded-card-lg bg-warning-subtle/80 border border-warning-amber/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-warning-amber flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-text-primary">
-                {proposedCount} Proposed Facts Awaiting Verification
-              </p>
-              <p className="text-xs text-text-secondary">
-                Extracted information requires human confirmation before it can be used in job applications.
-              </p>
-            </div>
+        <div className="max-w-md mx-auto space-y-3">
+          <div className="w-12 h-12 rounded-full bg-bg-elev-2 flex items-center justify-center mx-auto text-text">
+            <Upload className="w-5 h-5" strokeWidth={1.5} />
           </div>
-          <Button variant="primary" size="sm" onClick={handleConfirmAll} loading={loading}>
-            <CheckCircle2 className="w-3.5 h-3.5 text-success-green" />
-            <span>Confirm All Proposed Facts</span>
-          </Button>
-        </div>
-      )}
-
-      {/* Facts Filter Navigation */}
-      <div className="flex items-center justify-between gap-4 mb-4 border-b border-border-subtle pb-3">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {[
-            { id: 'ALL', label: `All Facts (${facts.length})` },
-            { id: 'SKILL', label: 'Skills' },
-            { id: 'EXPERIENCE', label: 'Experience' },
-            { id: 'EDUCATION', label: 'Education' },
-            { id: 'PROJECT', label: 'Projects' },
-            { id: 'CONTACT', label: 'Contact & Auth' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedCategory(tab.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                selectedCategory === tab.id
-                  ? 'bg-text-primary text-white shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-black/5'
-              }`}
+          <h3 className="text-base font-semibold text-text">
+            {resumeStatus?.has_master_resume ? 'Replace Master Resume' : 'Upload Master Resume'}
+          </h3>
+          <p className="text-xs text-text-2 leading-relaxed">
+            Drag and drop your PDF CV here, or browse files. The extractor parses verifiable claims without modifying facts.
+          </p>
+          <div className="pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={uploading}
+              onClick={() => fileInputRef.current?.click()}
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="text-xs text-text-tertiary flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-success-green" />
-            {activeCount} Active
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-warning-amber" />
-            {proposedCount} Proposed
-          </span>
+              <FileText className="w-3.5 h-3.5" />
+              <span>{uploading ? 'Extracting claims…' : 'Select PDF document'}</span>
+            </Button>
+          </div>
+          {resumeStatus?.has_master_resume && (
+            <p className="text-[11px] font-mono text-ok pt-2">
+              ✓ Master resume active ({resumeStatus.filename || 'PDF on disk'})
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Fact List */}
-      {filteredFacts.length === 0 ? (
-        <Card className="text-center py-12">
-          <User className="w-10 h-10 text-text-tertiary mx-auto mb-3 opacity-40" />
-          <h4 className="text-sm font-semibold text-text-primary">No facts in this category</h4>
-          <p className="text-xs text-text-secondary mt-1">
-            Import your master resume or add a fact manually to expand your qualification graph.
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredFacts.map((fact) => {
-            const isProposed = fact.status === 'PROPOSED'
-            const isActionable = actingFactId === fact.id
-
-            // Format human readable value
-            let displayTitle = fact.key
-            let displayContent = JSON.stringify(fact.value)
-
-            if (fact.kind === 'SKILL') {
-              displayTitle = fact.value.name || fact.key
-              displayContent = 'Technical Skill'
-            } else if (fact.kind === 'CONTACT') {
-              displayTitle = fact.value.display_name || fact.key
-              displayContent = `${fact.value.email || ''} • ${fact.value.phone || ''} • ${fact.value.location || ''}`
-            } else if (fact.kind === 'EDUCATION') {
-              displayTitle = `${fact.value.degree_level || 'Degree'} in ${fact.value.field || 'Study'}`
-              displayContent = `Graduation Year: ${fact.value.graduation_year || 'N/A'}`
-            } else if (fact.kind === 'EXPERIENCE') {
-              displayTitle = fact.value.title || fact.key
-              displayContent = fact.value.description || JSON.stringify(fact.value)
-            } else if (fact.kind === 'PROJECT') {
-              displayTitle = fact.value.name || fact.key
-              displayContent = fact.value.description || ''
-            }
-
+      {/* Two Column Layout: Sticky Section Nav & Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Sticky Rail */}
+        <div className="lg:col-span-4 sticky top-24 space-y-1">
+          {SECTIONS.map((sec) => {
+            const active = activeSection === sec.id
+            const Icon = sec.icon
             return (
-              <Card
-                key={fact.id}
-                className={`flex flex-col justify-between p-4 ${
-                  isProposed ? 'border-warning-amber/30 bg-warning-subtle/20' : 'bg-surface'
+              <button
+                key={sec.id}
+                onClick={() => setActiveSection(sec.id)}
+                className={`relative w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors ${
+                  active ? 'text-text font-semibold' : 'text-text-2 hover:text-text hover:bg-selected'
                 }`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      {fact.kind}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                        isProposed
-                          ? 'bg-warning-subtle text-warning-amber border border-warning-amber/30'
-                          : 'bg-success-subtle text-success-green border border-success-green/20'
-                      }`}
-                    >
-                      {isProposed ? 'Proposed' : 'Active (Verified)'}
-                    </span>
-                  </div>
-
-                  <h4 className="font-semibold text-text-primary text-sm mb-1">{displayTitle}</h4>
-                  <p className="text-xs text-text-secondary line-clamp-3 mb-3 leading-relaxed">
-                    {displayContent}
-                  </p>
+                {active && (
+                  <motion.span
+                    layoutId="profile-section-pill"
+                    className="absolute inset-0 rounded-card bg-selected border border-border"
+                    transition={spring.layout}
+                  />
+                )}
+                <div className="relative z-10 flex items-center gap-3">
+                  <Icon className="w-4 h-4 text-text-3" strokeWidth={1.5} />
+                  <span className="text-sm">{sec.label}</span>
                 </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-border-subtle mt-2 text-xs">
-                  <span className="text-[11px] text-text-tertiary font-mono">
-                    {fact.provenance}
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    {isProposed ? (
-                      <>
-                        <button
-                          onClick={() => handleConfirmFact(fact.id)}
-                          disabled={isActionable}
-                          className="px-2.5 py-1 rounded-full text-xs font-medium bg-success-green text-white hover:opacity-90 transition-opacity"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          onClick={() => handleRejectFact(fact.id)}
-                          disabled={isActionable}
-                          className="px-2.5 py-1 rounded-full text-xs font-medium text-danger-red hover:bg-danger-subtle transition-colors"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => {
-                            setEditingFact(fact)
-                            setEditValueText(JSON.stringify(fact.value, null, 2))
-                          }}
-                          className="p-1 rounded-full text-text-tertiary hover:text-text-primary transition-colors"
-                          title="Edit Fact"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm('Delete this verified fact?')) {
-                              await api.deleteFact(fact.id)
-                              if (activeCandidate) {
-                                const updated = await api.getCandidateFacts(activeCandidate.id)
-                                setFacts(updated)
-                              }
-                            }
-                          }}
-                          className="p-1 rounded-full text-text-tertiary hover:text-danger-red transition-colors"
-                          title="Delete Fact"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </Card>
+                <span className="relative z-10 text-xs font-mono text-text-3 px-2 py-0.5 rounded-full bg-bg-input">
+                  {sec.count}
+                </span>
+              </button>
             )
           })}
         </div>
-      )}
 
-      {/* Edit Fact Modal */}
-      {editingFact && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <Card className="w-full max-w-lg p-6 bg-surface shadow-apple-floating">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-text-primary text-base">
-                Edit Fact: {editingFact.key}
+        {/* Right Section Content */}
+        <div className="lg:col-span-8 space-y-4">
+          {activeSection === 'basics' && (
+            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-5">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-text-3">
+                Candidate Identity
               </h3>
-              <button onClick={() => setEditingFact(null)} className="text-text-tertiary hover:text-text-primary">
-                <X className="w-4 h-4" />
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-text-3">Display Name</label>
+                  <p className="p-3 rounded-md border border-border bg-bg-input text-sm font-semibold text-text">
+                    {activeCandidate?.display_name || 'Ada Lovelace'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-text-3">Timezone</label>
+                  <p className="p-3 rounded-md border border-border bg-bg-input text-sm font-mono text-text">
+                    {activeCandidate?.timezone || 'UTC'}
+                  </p>
+                </div>
+              </div>
+
+              {contactFacts.length > 0 && (
+                <div className="pt-4 border-t border-border space-y-3">
+                  <h4 className="text-xs font-semibold text-text-3 uppercase">Verified Contacts</h4>
+                  {contactFacts.map((cf) => (
+                    <div key={cf.id} className="p-4 rounded-md border border-border bg-bg-elev-2 flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-semibold text-text">{cf.value?.full_name || 'Contact Info'}</p>
+                        <p className="text-text-2 font-mono mt-0.5">{cf.value?.email} · {cf.value?.phone}</p>
+                      </div>
+                      <span className="font-mono text-[10px] text-ok px-2 py-0.5 rounded bg-ok-subtle">
+                        {cf.provenance}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <textarea
-              value={editValueText}
-              onChange={(e) => setEditValueText(e.target.value)}
-              className="w-full h-40 p-3 rounded-apple-sm font-mono text-xs border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setEditingFact(null)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" onClick={handleSaveEditFact}>
-                Save Changes
-              </Button>
+          )}
+
+          {activeSection === 'experience' && (
+            <div className="space-y-3">
+              {experienceFacts.length === 0 ? (
+                <div className="p-12 rounded-card border border-border bg-bg-elev-1 text-center text-xs text-text-3">
+                  No experience records parsed yet. Upload your master resume above.
+                </div>
+              ) : (
+                experienceFacts.map((ef) => (
+                  <div key={ef.id} className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-3 shadow-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h4 className="text-base font-semibold text-text">{ef.value?.title || ef.key}</h4>
+                        <p className="text-xs text-text-3 font-mono mt-0.5">
+                          {ef.value?.duration_months ? `${Math.round(ef.value.duration_months / 12)} years experience` : 'Professional Role'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleDeleteFact(ef.id)}
+                          disabled={actingFactId === ef.id}
+                          className="p-1.5 rounded-full text-text-3 hover:text-err transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {ef.value?.description && (
+                      <p className="text-xs text-text-2 leading-relaxed">{ef.value.description}</p>
+                    )}
+                    {ef.value?.skills && Array.isArray(ef.value.skills) && (
+                      <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
+                        {ef.value.skills.map((s: string, idx: number) => (
+                          <span key={idx} className="text-[11px] font-mono px-2 py-0.5 rounded bg-bg-input text-text-3">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
-          </Card>
+          )}
+
+          {activeSection === 'education' && (
+            <div className="space-y-3">
+              {educationFacts.length === 0 ? (
+                <div className="p-12 rounded-card border border-border bg-bg-elev-1 text-center text-xs text-text-3">
+                  No education records parsed yet.
+                </div>
+              ) : (
+                educationFacts.map((ef) => (
+                  <div key={ef.id} className="rounded-card border border-border bg-bg-elev-1 p-6 flex items-start justify-between shadow-1">
+                    <div className="space-y-1">
+                      <h4 className="text-base font-semibold text-text">
+                        {ef.value?.degree_level} in {ef.value?.field || ef.key}
+                      </h4>
+                      <p className="text-xs text-text-3 font-mono">
+                        Graduation: {ef.value?.graduation_year || 'Verified'} · Provenance: {ef.provenance}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteFact(ef.id)}
+                      className="p-1.5 rounded-full text-text-3 hover:text-err transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeSection === 'skills' && (
+            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <h3 className="text-sm font-semibold text-text">Verified Skills ({skillFacts.length})</h3>
+                <span className="text-xs text-text-3 font-mono">Immutable Graph Records</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {skillFacts.map((sf) => (
+                  <span
+                    key={sf.id}
+                    className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-bg-elev-2 text-xs font-mono text-text hover:border-border-strong transition-colors"
+                  >
+                    <span>{sf.value?.name || sf.key}</span>
+                    <button
+                      onClick={() => handleDeleteFact(sf.id)}
+                      className="opacity-0 group-hover:opacity-100 hover:text-err transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'work_auth' && (
+            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-4 shadow-1">
+              <h3 className="text-sm font-semibold text-text">Work Authorization Countries</h3>
+              {authFacts.length === 0 ? (
+                <p className="text-xs text-text-3">No work authorization facts registered.</p>
+              ) : (
+                authFacts.map((af) => (
+                  <div key={af.id} className="flex items-center gap-2">
+                    {(af.value?.authorized_countries || []).map((c: string) => (
+                      <span key={c} className="px-3 py-1 rounded-full bg-ok-subtle border border-ok/20 text-ok text-xs font-mono font-semibold">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeSection === 'advanced' && (
+            <div className="rounded-card border border-border bg-bg-elev-1 p-6 space-y-3">
+              <h3 className="text-xs uppercase tracking-wider font-semibold text-text-3">
+                Advanced: Raw Fact Graph JSON
+              </h3>
+              <pre className="p-4 rounded-md bg-bg-input border border-border text-[11px] font-mono text-text-2 overflow-x-auto max-h-[400px]">
+                {JSON.stringify(facts, null, 2)}
+              </pre>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Add Fact Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <Card className="w-full max-w-lg p-6 bg-surface shadow-apple-floating">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-text-primary text-base">Add New Candidate Fact</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-text-tertiary hover:text-text-primary">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleAddFactSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                  Fact Kind
-                </label>
-                <select
-                  value={newFactKind}
-                  onChange={(e) => setNewFactKind(e.target.value)}
-                  className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                >
-                  <option value="SKILL">Skill</option>
-                  <option value="EXPERIENCE">Experience</option>
-                  <option value="EDUCATION">Education</option>
-                  <option value="PROJECT">Project</option>
-                  <option value="WORK_AUTH">Work Authorization</option>
-                  <option value="CONTACT">Contact</option>
-                </select>
-              </div>
+      <Dialog
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Custom Candidate Fact"
+        description="Insert a factual assertion into your provenance graph."
+      >
+        <form onSubmit={handleAddFactSubmit} className="space-y-4 mt-2">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text">Fact Kind</label>
+            <select
+              value={newFactKind}
+              onChange={(e) => setNewFactKind(e.target.value)}
+              className="app-input"
+            >
+              <option value="SKILL">SKILL</option>
+              <option value="EDUCATION">EDUCATION</option>
+              <option value="EXPERIENCE">EXPERIENCE</option>
+              <option value="CERTIFICATION">CERTIFICATION</option>
+              <option value="WORK_AUTH">WORK_AUTH</option>
+            </select>
+          </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                  Key / Identifier
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. skill_python or degree"
-                  value={newFactKey}
-                  onChange={(e) => setNewFactKey(e.target.value)}
-                  className="w-full p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue"
-                  required
-                />
-              </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text">Key Identifier</label>
+            <input
+              required
+              value={newFactKey}
+              onChange={(e) => setNewFactKey(e.target.value)}
+              className="app-input font-mono text-xs"
+              placeholder="e.g. typescript"
+            />
+          </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                  Value (JSON or plain text)
-                </label>
-                <textarea
-                  placeholder='e.g. {"name": "Python"} or Python'
-                  value={newFactValue}
-                  onChange={(e) => setNewFactValue(e.target.value)}
-                  className="w-full h-24 p-2.5 rounded-apple-sm text-sm border border-border-subtle bg-canvas text-text-primary focus:outline-none focus:border-apple-blue font-mono text-xs"
-                  required
-                />
-              </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text">Value (String or JSON)</label>
+            <input
+              required
+              value={newFactValue}
+              onChange={(e) => setNewFactValue(e.target.value)}
+              className="app-input font-mono text-xs"
+              placeholder="TypeScript or {&quot;name&quot;: &quot;TypeScript&quot;}"
+            />
+          </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="secondary" size="sm" type="button" onClick={() => setShowAddModal(false)}>
-                  Cancel
-                </Button>
-                <Button variant="primary" size="sm" type="submit">
-                  Save Fact
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+            <Button type="button" variant="secondary" onClick={() => setShowAddModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary">
+              Save Fact
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   )
 }
