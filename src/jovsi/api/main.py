@@ -11,7 +11,7 @@ from jovsi.config import settings
 from jovsi.domain.state_machine import IllegalTransition, GuardFailure
 from jovsi.services.application_service import VersionConflict, ApplicationNotFound
 from jovsi.services.submission import ApprovalError, SubmissionError
-from jovsi.api.routers import candidates, jobs, applications, metrics, settings as settings_router
+from jovsi.api.routers import auth, candidates, jobs, applications, metrics, settings as settings_router
 from jovsi.adapters.db.session import init_db
 
 
@@ -73,6 +73,7 @@ async def submission_error_handler(request: Request, exc: SubmissionError) -> JS
     )
 
 # Include Routers under /api/v1
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(candidates.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(applications.router, prefix="/api/v1")

@@ -9,6 +9,7 @@ import type {
   MasterResumeStatus,
   MetricsSummary,
   SettingsData,
+  User,
 } from '../types'
 
 const BASE_URL = ''
@@ -49,6 +50,48 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Authentication & Account Identity
+  register: (data: { email: string; password: string; display_name?: string; timezone?: string }) =>
+    request<User>('/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  login: (data: { email: string; password: string }) =>
+    request<User>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  logout: () =>
+    request<{ status: string }>('/api/v1/auth/logout', {
+      method: 'POST',
+    }),
+  getMe: () => request<User>('/api/v1/auth/me'),
+  updateProfile: (data: { display_name?: string; timezone?: string }) =>
+    request<User>('/api/v1/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    request<{ status: string }>('/api/v1/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  forgotPassword: (email: string) =>
+    request<{ message: string; _test_token?: string }>('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (data: { token: string; new_password: string }) =>
+    request<{ status: string }>('/api/v1/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  verifyEmail: (token: string) =>
+    request<{ status: string }>('/api/v1/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
   // System Health & Diagnostics
   getHealth: () => request<{ status: string; product: string; autonomy_level: string; allow_real_submission: boolean; timestamp: string }>('/health'),
   getDiagnostics: () => request<DiagnosticsData>('/diagnostics/health'),
@@ -68,11 +111,18 @@ export const api = {
     const list = await request<Candidate[]>('/api/v1/candidates')
     if (list.length > 0) return list[0]
 
-    // Create a default initial user profile without synthetic facts
+    let displayName = 'Candidate'
+    try {
+      const me = await request<User>('/api/v1/auth/me')
+      if (me.display_name) displayName = me.display_name
+    } catch {
+      // not authenticated
+    }
+
     return request<Candidate>('/api/v1/candidates', {
       method: 'POST',
       body: JSON.stringify({
-        display_name: 'My Profile',
+        display_name: displayName,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
         is_synthetic: false,
       }),

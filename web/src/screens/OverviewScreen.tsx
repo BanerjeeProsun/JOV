@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowRight, FileText, RefreshCw, Search, ShieldCheck, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
+import { ArrowRight, FileText, RefreshCw, Search, ShieldCheck, CheckCircle2, AlertCircle, Clock, UserCheck } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { SplitText } from '../components/motion/SplitText'
 import { Magnetic } from '../components/motion/Magnetic'
 import { HeroVideo } from '../components/media/HeroVideo'
 import { api } from '../api/client'
-import type { Candidate, MasterResumeStatus, MetricsSummary } from '../types'
+import { useAuth } from '../context/AuthContext'
+import type { MasterResumeStatus, MetricsSummary } from '../types'
 
 interface OverviewScreenProps {
   onNavigate: (tab: 'jobs' | 'queue' | 'tracker' | 'profile') => void
 }
 
 export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) => {
+  const { user, isAuthenticated, openAuthModal } = useAuth()
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null)
-  const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [resumeStatus, setResumeStatus] = useState<MasterResumeStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +28,6 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
         api.getActiveCandidate(),
       ])
       setMetrics(summary)
-      setCandidate(activeCandidate)
       if (activeCandidate) {
         const status = await api.getMasterResumeStatus(activeCandidate.id)
         setResumeStatus(status)
@@ -72,13 +72,19 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
         {/* Left Hero Typographic Content & Primary Actions */}
         <div className="relative z-10 max-w-xl lg:max-w-2xl space-y-6">
           <div className="overflow-visible pr-2">
-            {hasResume ? (
-              <h1 className="text-[clamp(2.5rem,5.5vw,4.5rem)] font-semibold tracking-tight leading-[1.02] text-text">
-                Welcome back,{' '}
-                <span className="font-editorial italic font-normal text-text inline-block pr-1">
-                  {candidate?.display_name || 'Candidate'}.
-                </span>
-              </h1>
+            {isAuthenticated ? (
+              user?.display_name?.trim() ? (
+                <h1 className="text-[clamp(2.5rem,5.5vw,4.5rem)] font-semibold tracking-tight leading-[1.02] text-text">
+                  Welcome back,{' '}
+                  <span className="font-editorial italic font-normal text-text inline-block pr-1">
+                    {user.display_name}.
+                  </span>
+                </h1>
+              ) : (
+                <h1 className="text-[clamp(2.5rem,5.5vw,4.5rem)] font-semibold tracking-tight leading-[1.02] text-text">
+                  Welcome back.
+                </h1>
+              )
             ) : (
               <SplitText
                 text="Your next role, in focus."
@@ -89,7 +95,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
           </div>
 
           <p className="page-intro max-w-lg lg:max-w-xl text-text-2 text-[15px] sm:text-[16px] leading-relaxed">
-            {hasResume
+            {isAuthenticated && hasResume
               ? 'A calm, accurate view of your applications. Every proposition is derived from your verified records with strict provenance.'
               : 'Turn a noisy search into an aligned, finished application. Your master resume generates factual, tailored packages gated by strict provenance verification.'}
           </p>
@@ -114,6 +120,16 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) =>
               <span>{hasResume ? 'Open application queue' : 'Explore candidate graph'}</span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </button>
+
+            {!isAuthenticated && (
+              <button
+                onClick={openAuthModal}
+                className="inline-flex items-center gap-2 px-4 py-3 text-[13px] font-medium text-text-3 hover:text-text transition-colors border border-border/80 hover:border-border rounded-full bg-bg-elev-1/40 hover:bg-bg-elev-1"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Sign in / Create account</span>
+              </button>
+            )}
           </div>
         </div>
       </section>

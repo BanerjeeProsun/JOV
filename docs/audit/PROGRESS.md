@@ -8,9 +8,9 @@
 
 | Milestone | Title | Status | Tests Passed | Commit |
 |---|---|---|---|---|
-| **M0** | Recon, Inventory, Recovery Plan | **IN PROGRESS** | 115 / 115 | Pending |
-| **M1** | Strict Authentication, Identity & Isolation | **PENDING** | - | - |
-| **M2** | Configuration, Secrets Hygiene, LLM Provider | **PENDING** | - | - |
+| **M0** | Recon, Inventory, Recovery Plan | **COMPLETED** | 115 / 115 | `1b98d5c` |
+| **M1** | Strict Authentication, Identity & Isolation | **COMPLETED** | 124 / 124 | Pending |
+| **M2** | Configuration, Secrets Hygiene, LLM Provider | **IN PROGRESS** | - | - |
 | **M3** | Zombie-Code Removal & Mock Isolation | **PENDING** | - | - |
 | **M4** | Master-Resume Ingestion & Profile Verification | **PENDING** | - | - |
 | **M5** | Source Registry & Real ATS Connectors | **PENDING** | - | - |
@@ -55,3 +55,36 @@
   - Web build: `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.34s.
   - Web lint: `cd web; npm run lint` -> 25 warnings, 0 errors.
 - **Definition of Done for M0**: All 11 audit documents authored with real file citations, line ranges, test outputs, and clear recovery actions.
+
+---
+
+### Milestone 1: Strict Authentication, Identity & Account Isolation
+- **Scope**: Implement user accounts, session lifecycle, password security, endpoint ownership checks, two-account isolation, and persisted display-name greetings.
+- **Implemented Modules**:
+  - `src/jovsi/adapters/db/models.py`: Added `UserDB`, `UserSessionDB`, `PasswordResetTokenDB`, `EmailVerificationTokenDB`, `UserSettingsDB`. Added `user_id` FK to `CandidateDB`.
+  - `src/jovsi/adapters/db/session.py`: Auto-migration for `user_id` on SQLite startup.
+  - `src/jovsi/services/auth.py`: PBKDF2-HMAC-SHA256 (600,000 iterations, 16-byte random salt, constant-time verification). 256-bit secure session tokens (SHA-256 hashed in DB), 24h idle timeout, 30d absolute timeout, token revocation on logout/password change. Sliding-window rate limiter on auth endpoints. Single-use reset and verification tokens.
+  - `src/jovsi/api/dependencies.py`: `get_session_token_from_request`, `get_current_user`, `get_optional_current_user`.
+  - `src/jovsi/api/routers/auth.py`: `/register`, `/login`, `/logout`, `/me`, `/profile`, `/change-password`, `/forgot-password`, `/reset-password`, `/verify-email`.
+  - Endpoint Access Control:
+    - `src/jovsi/api/routers/candidates.py`: Strict ownership enforcement on candidates and facts.
+    - `src/jovsi/api/routers/applications.py`: Strict ownership enforcement on applications and document downloads.
+    - `src/jovsi/api/routers/metrics.py`: Metrics summary query scoped to user's candidates.
+    - `src/jovsi/api/routers/settings.py`: Settings persisted per user in `UserSettingsDB`.
+    - `src/jovsi/api/routers/jobs.py`: Candidate ownership verified on job discovery.
+  - Frontend Updates:
+    - `web/src/types/index.ts`: User interface added.
+    - `web/src/api/client.ts`: Auth endpoints implemented, hard-coded fallback removed.
+    - `web/src/context/AuthContext.tsx`: Global auth context and session lifecycle.
+    - `web/src/components/auth/AuthModal.tsx`: Login, register, and reset modal.
+    - `web/src/screens/OverviewScreen.tsx`: Greeting contract verified:
+      - Authenticated with display name: `Welcome back, {display_name}.`
+      - Authenticated without display name: `Welcome back.`
+      - Unauthenticated: `Your next role, in focus.`
+    - `web/src/components/layout/FloatingNav.tsx`: Account pill and sign-in trigger.
+    - `web/src/screens/SettingsScreen.tsx`: Account & Identity tab.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 124 passed, 0 failed in 27.96s (115 baseline + 9 new security tests).
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.11s.
+  - `cd web; npm run lint` -> 28 warnings, 0 errors.
+- **Definition of Done for M1**: Complete end-to-end auth, two-account isolation tests pass, display-name greeting contract fulfilled.

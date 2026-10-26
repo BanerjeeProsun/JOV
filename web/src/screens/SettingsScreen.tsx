@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Button } from '../components/ui/Button'
 import { api } from '../api/client'
+import { useAuth } from '../context/AuthContext'
 import {
   ShieldCheck,
   Save,
@@ -12,19 +13,40 @@ import {
   Sun,
   Monitor,
   Info,
+  UserCheck,
+  Key,
+  LogOut,
+  AlertCircle,
 } from 'lucide-react'
 import { useTheme, type ThemeMode } from '../components/ThemeProvider'
 import { spring } from '../design/motion'
 
-type SettingsTab = 'appearance' | 'behavior' | 'integrations' | 'about'
+type SettingsTab = 'appearance' | 'behavior' | 'integrations' | 'account' | 'about'
 
 export const SettingsScreen: React.FC = () => {
   const { mode, setMode } = useTheme()
+  const { user, isAuthenticated, openAuthModal, logout, refreshUser } = useAuth()
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Account State
+  const [accountDisplayName, setAccountDisplayName] = useState('')
+  const [updatingProfile, setUpdatingProfile] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [accountFeedback, setAccountFeedback] = useState<string | null>(null)
+  const [accountError, setAccountError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user?.display_name) {
+      setAccountDisplayName(user.display_name)
+    }
+  }, [user])
 
   // Form Fields
   const [suitabilityFloor, setSuitabilityFloor] = useState(70)
@@ -82,10 +104,58 @@ export const SettingsScreen: React.FC = () => {
     }
   }
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUpdatingProfile(true)
+    setAccountFeedback(null)
+    setAccountError(null)
+    try {
+      await api.updateProfile({ display_name: accountDisplayName.trim() })
+      await refreshUser()
+      setAccountFeedback('Display name updated successfully!')
+      setTimeout(() => setAccountFeedback(null), 4000)
+    } catch (err: any) {
+      setAccountError(err.message || 'Failed to update profile')
+    } finally {
+      setUpdatingProfile(false)
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword.length < 8) {
+      setAccountError('New password must be at least 8 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setAccountError('New passwords do not match')
+      return
+    }
+    setChangingPassword(true)
+    setAccountFeedback(null)
+    setAccountError(null)
+    try {
+      await api.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setAccountFeedback('Password changed successfully!')
+      setTimeout(() => setAccountFeedback(null), 4000)
+    } catch (err: any) {
+      setAccountError(err.message || 'Failed to change password')
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   const TABS = [
     { id: 'appearance' as SettingsTab, label: 'Appearance', icon: Sun },
     { id: 'behavior' as SettingsTab, label: 'Application Behavior', icon: Sliders },
     { id: 'integrations' as SettingsTab, label: 'Application Safeguards', icon: ShieldCheck },
+    { id: 'account' as SettingsTab, label: 'Account & Identity', icon: UserCheck },
     { id: 'about' as SettingsTab, label: 'About JOV.si', icon: Info },
   ]
 
@@ -308,6 +378,165 @@ export const SettingsScreen: React.FC = () => {
                     <span className="text-text font-medium">Cryptographic Package Verification</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'account' && (
+              <div className="border-t border-border/60 pt-6 space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-text">Account & Identity</h3>
+                  <p className="text-xs text-text-3 mt-1">
+                    Manage your account credentials, persisted display name, and active session.
+                  </p>
+                </div>
+
+                {accountFeedback && (
+                  <div className="p-3 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-text-2 shrink-0" />
+                      <span>{accountFeedback}</span>
+                    </div>
+                    <button type="button" onClick={() => setAccountFeedback(null)} className="p-1 hover:opacity-70">
+                      ×
+                    </button>
+                  </div>
+                )}
+
+                {accountError && (
+                  <div className="p-3 border border-border/80 rounded-xl bg-bg-elev-1/60 text-xs text-text flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-3.5 h-3.5 text-text-3 shrink-0" />
+                      <span>{accountError}</span>
+                    </div>
+                    <button type="button" onClick={() => setAccountError(null)} className="p-1 hover:opacity-70">
+                      ×
+                    </button>
+                  </div>
+                )}
+
+                {isAuthenticated && user ? (
+                  <div className="space-y-6">
+                    {/* Account Overview Card */}
+                    <div className="p-4 rounded-xl border border-border/60 bg-bg-elev-1/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-semibold text-text">{user.email}</span>
+                          <p className="text-xs text-text-3 mt-0.5">
+                            Member since {new Date(user.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono border ${user.is_verified ? 'border-emerald-500/40 text-emerald-400' : 'border-border text-text-3'}`}>
+                          {user.is_verified ? 'Verified' : 'Unverified'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Display Name Form */}
+                    <div className="p-4 rounded-xl border border-border/60 bg-bg-elev-1/30 space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-text">Display Name</label>
+                        <p className="text-[11px] text-text-3 mt-0.5">
+                          Used for personalizing your dashboard greeting and candidate communications.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={accountDisplayName}
+                          onChange={(e) => setAccountDisplayName(e.target.value)}
+                          placeholder="e.g. Alex Chen"
+                          className="flex-1 px-3 py-2 text-xs rounded-lg border border-border bg-bg-elev-1 text-text placeholder:text-text-3 focus:outline-none focus:ring-1 focus:ring-focus"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleUpdateProfile}
+                          loading={updatingProfile}
+                        >
+                          Save Name
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Change Password Form */}
+                    <div className="p-4 rounded-xl border border-border/60 bg-bg-elev-1/30 space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-text">Change Password</label>
+                        <p className="text-[11px] text-text-3 mt-0.5">
+                          Requires your current password. Must be at least 8 characters.
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Current password"
+                          className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-bg-elev-1 text-text placeholder:text-text-3 focus:outline-none focus:ring-1 focus:ring-focus"
+                        />
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="New password (min. 8 characters)"
+                          className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-bg-elev-1 text-text placeholder:text-text-3 focus:outline-none focus:ring-1 focus:ring-focus"
+                        />
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-bg-elev-1 text-text placeholder:text-text-3 focus:outline-none focus:ring-1 focus:ring-focus"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleChangePassword}
+                          loading={changingPassword}
+                          disabled={!currentPassword || !newPassword || !confirmPassword}
+                        >
+                          <Key className="w-3.5 h-3.5" />
+                          <span>Update Password</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Session Controls */}
+                    <div className="pt-2 flex justify-between items-center">
+                      <span className="text-xs text-text-3">Sign out of active session</span>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={logout}
+                        className="text-text-2 hover:text-text"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-xl border border-border/60 bg-bg-elev-1/30 text-center space-y-4">
+                    <UserCheck className="w-8 h-8 text-text-3 mx-auto" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-text">Not Signed In</h4>
+                      <p className="text-xs text-text-3 mt-1 max-w-sm mx-auto">
+                        Sign in or register an account to sync your candidate data, safeguard your master resume, and track applications across sessions.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={openAuthModal}
+                    >
+                      Sign In / Register
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 

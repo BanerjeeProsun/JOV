@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from jovsi.adapters.db.session import get_db
-from jovsi.adapters.db.models import CandidateDB, DocumentDB, FactDB
+from jovsi.adapters.db.models import CandidateDB, DocumentDB, FactDB, UserDB
+from jovsi.api.dependencies import get_current_user, get_optional_current_user
 from jovsi.api.schemas import (
     CandidateCreate,
     CandidateResponse,
@@ -31,9 +32,35 @@ from jovsi.services.resume_parser import MasterResumeParser, ResumeParsingError
 router = APIRouter(tags=["Candidates & Facts"])
 
 
+def _check_candidate_access(candidate: CandidateDB, current_user: Optional[UserDB]) -> None:
+    """Enforce ownership isolation between accounts."""
+    if candidate.user_id is not None:
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to access candidate profile",
+            )
+        if candidate.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: You do not own this candidate profile",
+            )
+
+
+def _check_fact_access(fact: FactDB, current_user: Optional[UserDB]) -> None:
+    """Enforce fact ownership through parent candidate profile."""
+    if fact.candidate:
+        _check_candidate_access(fact.candidate, current_user)
+
+
 @router.post("/candidates", response_model=CandidateResponse, status_code=status.HTTP_201_CREATED)
-def create_candidate(data: CandidateCreate, db: Session = Depends(get_db)) -> CandidateResponse:
+def create_candidate(
+    data: CandidateCreate,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> CandidateResponse:
     candidate = CandidateDB(
+        user_id=current_user.id if current_user else None,
         display_name=data.display_name,
         timezone=data.timezone,
         is_synthetic=data.is_synthetic,
@@ -51,8 +78,22 @@ def create_candidate(data: CandidateCreate, db: Session = Depends(get_db)) -> Ca
 
 
 @router.get("/candidates", response_model=List[CandidateResponse])
-def list_candidates(db: Session = Depends(get_db)) -> List[CandidateResponse]:
-    candidates = db.scalars(select(CandidateDB).order_by(CandidateDB.created_at.asc())).all()
+def list_candidates(
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> List[CandidateResponse]:
+    if current_user:
+        candidates = db.scalars(
+            select(CandidateDB).where(CandidateDB.user_id == current_user.id).order_by(CandidateDB.created_at.asc())
+        ).all()
+        if not candidates:
+            from jovsi.services.auth import AuthService
+            cand = AuthService.get_or_create_candidate_for_user(db, current_user)
+            candidates = [cand]
+    else:
+        candidates = db.scalars(
+            select(CandidateDB).where(CandidateDB.user_id.is_(None)).order_by(CandidateDB.created_at.asc())
+        ).all()
     return [
         CandidateResponse(
             id=c.id,
@@ -66,10 +107,15 @@ def list_candidates(db: Session = Depends(get_db)) -> List[CandidateResponse]:
 
 
 @router.get("/candidates/{candidate_id}", response_model=CandidateResponse)
-def get_candidate(candidate_id: str, db: Session = Depends(get_db)) -> CandidateResponse:
+def get_candidate(
+    candidate_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> CandidateResponse:
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == candidate_id))
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    _check_candidate_access(candidate, current_user)
     return CandidateResponse(
         id=candidate.id,
         display_name=candidate.display_name,
@@ -80,7 +126,15 @@ def get_candidate(candidate_id: str, db: Session = Depends(get_db)) -> Candidate
 
 
 @router.get("/candidates/{candidate_id}/facts", response_model=List[FactResponse])
-def list_candidate_facts(candidate_id: str, db: Session = Depends(get_db)) -> List[FactResponse]:
+def list_candidate_facts(
+    candidate_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> List[FactResponse]:
+    candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == candidate_id))
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    _check_candidate_access(candidate, current_user)
     facts = db.scalars(select(FactDB).where(FactDB.candidate_id == candidate_id)).all()
     return [
         FactResponse(
@@ -102,10 +156,16 @@ def list_candidate_facts(candidate_id: str, db: Session = Depends(get_db)) -> Li
 
 
 @router.post("/candidates/{candidate_id}/facts", response_model=FactResponse, status_code=status.HTTP_201_CREATED)
-def add_candidate_fact(candidate_id: str, data: FactCreate, db: Session = Depends(get_db)) -> FactResponse:
+def add_candidate_fact(
+    candidate_id: str,
+    data: FactCreate,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> FactResponse:
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == candidate_id))
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    _check_candidate_access(candidate, current_user)
 
     domain_fact = ProvenanceEngine.create_user_fact(
         candidate_id=candidate_id,
@@ -151,10 +211,15 @@ def add_candidate_fact(candidate_id: str, data: FactCreate, db: Session = Depend
 
 
 @router.post("/facts/{fact_id}/confirm", response_model=FactResponse)
-def confirm_fact(fact_id: str, db: Session = Depends(get_db)) -> FactResponse:
+def confirm_fact(
+    fact_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> FactResponse:
     fact = db.scalar(select(FactDB).where(FactDB.id == fact_id))
     if not fact:
         raise HTTPException(status_code=404, detail="Fact not found")
+    _check_fact_access(fact, current_user)
 
     fact.status = FactStatus.ACTIVE.value
     fact.provenance = FactProvenance.USER_VERIFIED.value
@@ -180,10 +245,15 @@ def confirm_fact(fact_id: str, db: Session = Depends(get_db)) -> FactResponse:
 
 
 @router.post("/facts/{fact_id}/reject", response_model=FactResponse)
-def reject_fact(fact_id: str, db: Session = Depends(get_db)) -> FactResponse:
+def reject_fact(
+    fact_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> FactResponse:
     fact = db.scalar(select(FactDB).where(FactDB.id == fact_id))
     if not fact:
         raise HTTPException(status_code=404, detail="Fact not found")
+    _check_fact_access(fact, current_user)
 
     fact.status = FactStatus.REJECTED.value
     db.commit()
@@ -206,10 +276,16 @@ def reject_fact(fact_id: str, db: Session = Depends(get_db)) -> FactResponse:
 
 
 @router.put("/facts/{fact_id}", response_model=FactResponse)
-def update_fact(fact_id: str, data: FactUpdate, db: Session = Depends(get_db)) -> FactResponse:
+def update_fact(
+    fact_id: str,
+    data: FactUpdate,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> FactResponse:
     fact = db.scalar(select(FactDB).where(FactDB.id == fact_id))
     if not fact:
         raise HTTPException(status_code=404, detail="Fact not found")
+    _check_fact_access(fact, current_user)
 
     if data.key:
         fact.key = data.key
@@ -234,19 +310,29 @@ def update_fact(fact_id: str, data: FactUpdate, db: Session = Depends(get_db)) -
 
 
 @router.delete("/facts/{fact_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_fact(fact_id: str, db: Session = Depends(get_db)):
+def delete_fact(
+    fact_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
     fact = db.scalar(select(FactDB).where(FactDB.id == fact_id))
     if not fact:
         raise HTTPException(status_code=404, detail="Fact not found")
+    _check_fact_access(fact, current_user)
     db.delete(fact)
     db.commit()
 
 
 @router.post("/candidates/{candidate_id}/confirm-all-facts", response_model=List[FactResponse])
-def confirm_all_facts(candidate_id: str, db: Session = Depends(get_db)) -> List[FactResponse]:
+def confirm_all_facts(
+    candidate_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> List[FactResponse]:
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == candidate_id))
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    _check_candidate_access(candidate, current_user)
 
     proposed_facts = db.scalars(
         select(FactDB).where(FactDB.candidate_id == candidate_id, FactDB.status == FactStatus.PROPOSED.value)
@@ -281,10 +367,15 @@ def confirm_all_facts(candidate_id: str, db: Session = Depends(get_db)) -> List[
 
 
 @router.get("/candidates/{candidate_id}/master-resume", response_model=MasterResumeStatusResponse)
-def get_master_resume_status(candidate_id: str, db: Session = Depends(get_db)) -> MasterResumeStatusResponse:
+def get_master_resume_status(
+    candidate_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> MasterResumeStatusResponse:
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == candidate_id))
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    _check_candidate_access(candidate, current_user)
 
     doc = db.scalar(
         select(DocumentDB)
@@ -322,11 +413,13 @@ def get_master_resume_status(candidate_id: str, db: Session = Depends(get_db)) -
 async def upload_master_resume(
     candidate_id: str,
     file: UploadFile = File(...),
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ) -> MasterResumeResponse:
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == candidate_id))
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    _check_candidate_access(candidate, current_user)
 
     filename = file.filename or "resume.pdf"
     content = await file.read()
@@ -451,20 +544,32 @@ async def upload_master_resume(
 
 
 @router.get("/documents/{document_id}/download")
-def download_document(document_id: str, db: Session = Depends(get_db)):
+def download_document(
+    document_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
     doc = db.scalar(select(DocumentDB).where(DocumentDB.id == document_id))
     if not doc or not os.path.exists(doc.path):
         raise HTTPException(status_code=404, detail="Document file not found on disk")
+    if doc.candidate:
+        _check_candidate_access(doc.candidate, current_user)
 
     filename = os.path.basename(doc.path).split("_", 1)[-1]
     return FileResponse(path=doc.path, filename=filename, media_type="application/octet-stream")
 
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(document_id: str, db: Session = Depends(get_db)):
+def delete_document(
+    document_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
     doc = db.scalar(select(DocumentDB).where(DocumentDB.id == document_id))
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    if doc.candidate:
+        _check_candidate_access(doc.candidate, current_user)
 
     if os.path.exists(doc.path):
         try:

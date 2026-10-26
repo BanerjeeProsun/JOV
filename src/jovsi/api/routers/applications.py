@@ -22,7 +22,9 @@ from jovsi.adapters.db.models import (
     JobDB,
     ResumeDB,
     SubmissionAttemptDB,
+    UserDB,
 )
+from jovsi.api.dependencies import get_current_user, get_optional_current_user
 from jovsi.domain.models import ApplicationPackage, Fact, FactKind, FactProvenance, FactStatus, JobRequirements
 from jovsi.domain.state_machine import ApplicationState, StateMachine, TransitionContext
 from jovsi.domain.eligibility import EligibilityEngine
@@ -35,6 +37,21 @@ from jovsi.adapters.portals.base import FieldMappingEntry, FieldMappingPlan
 
 
 router = APIRouter(tags=["Applications"])
+
+
+def _check_app_access(app: ApplicationDB, current_user: Optional[UserDB]) -> None:
+    """Enforce ownership isolation between accounts for application records."""
+    if app.candidate and app.candidate.user_id is not None:
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to access application",
+            )
+        if app.candidate.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: You do not own this application record",
+            )
 
 
 class CreateApplicationRequest(BaseModel):
@@ -53,10 +70,19 @@ class ResolveUncertainRequest(BaseModel):
 
 
 @router.post("/applications", status_code=status.HTTP_201_CREATED)
-def create_application(data: CreateApplicationRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def create_application(
+    data: CreateApplicationRequest,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == data.candidate_id))
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    if candidate.user_id is not None:
+        if not current_user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+        if candidate.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to candidate profile")
 
     job = db.scalar(select(JobDB).where(JobDB.id == data.job_id))
     if not job:
@@ -103,9 +129,15 @@ def create_application(data: CreateApplicationRequest, db: Session = Depends(get
 def list_applications(
     state: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=100),
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
     stmt = select(ApplicationDB)
+    if current_user:
+        stmt = stmt.join(CandidateDB, ApplicationDB.candidate_id == CandidateDB.id).where(CandidateDB.user_id == current_user.id)
+    else:
+        stmt = stmt.join(CandidateDB, ApplicationDB.candidate_id == CandidateDB.id).where(CandidateDB.user_id.is_(None))
+
     if state:
         stmt = stmt.where(ApplicationDB.state == state)
     stmt = stmt.order_by(ApplicationDB.updated_at.desc()).limit(limit)
@@ -134,10 +166,15 @@ def list_applications(
 
 
 @router.get("/applications/{app_id}")
-def get_application(app_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_application(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
     if not app_row:
         raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
 
     job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == app_row.candidate_id))
@@ -214,10 +251,15 @@ def get_application(app_id: str, db: Session = Depends(get_db)) -> Dict[str, Any
 
 
 @router.post("/applications/{app_id}/evaluate")
-def evaluate_application(app_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def evaluate_application(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
     if not app_row:
         raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
 
     job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
     facts_db = db.scalars(select(FactDB).where(FactDB.candidate_id == app_row.candidate_id)).all()
@@ -306,10 +348,15 @@ def evaluate_application(app_id: str, db: Session = Depends(get_db)) -> Dict[str
 
 
 @router.post("/applications/{app_id}/generate-resume")
-def generate_resume(app_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def generate_resume(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
     if not app_row:
         raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
 
     job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == app_row.candidate_id))
@@ -382,7 +429,17 @@ class CoverLetterUpdate(BaseModel):
 
 
 @router.put("/applications/{app_id}/cover-letter")
-def update_cover_letter(app_id: str, data: CoverLetterUpdate, db: Session = Depends(get_db)):
+def update_cover_letter(
+    app_id: str,
+    data: CoverLetterUpdate,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
     resume_row = db.scalar(select(ResumeDB).where(ResumeDB.application_id == app_id).order_by(ResumeDB.created_at.desc()))
     if not resume_row:
         raise HTTPException(status_code=400, detail="No resume generated yet")
@@ -395,10 +452,15 @@ def update_cover_letter(app_id: str, data: CoverLetterUpdate, db: Session = Depe
 
 
 @router.post("/applications/{app_id}/gate")
-def run_gate(app_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def run_gate(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
     if not app_row:
         raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
 
     job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
     candidate = db.scalar(select(CandidateDB).where(CandidateDB.id == app_row.candidate_id))
@@ -478,7 +540,17 @@ def run_gate(app_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 
 @router.post("/applications/{app_id}/approve")
-def approve_application(app_id: str, data: ApproveRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def approve_application(
+    app_id: str,
+    data: ApproveRequest,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
     approval = ApprovalService.approve_package(
         db=db,
         application_id=app_id,
@@ -489,10 +561,15 @@ def approve_application(app_id: str, data: ApproveRequest, db: Session = Depends
 
 
 @router.post("/applications/{app_id}/submit")
-async def submit_application(app_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+async def submit_application(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
     if not app_row:
         raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
 
     if app_row.state != "APPROVED":
         raise HTTPException(status_code=400, detail=f"Application cannot be submitted from state {app_row.state}. Must be APPROVED.")
@@ -542,10 +619,16 @@ async def submit_application(app_id: str, db: Session = Depends(get_db)) -> Dict
 
 
 @router.post("/applications/{app_id}/resolve")
-def resolve_uncertain(app_id: str, data: ResolveUncertainRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def resolve_uncertain(
+    app_id: str,
+    data: ResolveUncertainRequest,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
     if not app_row or app_row.state != "SUBMISSION_UNCERTAIN":
         raise HTTPException(status_code=400, detail="Application is not in SUBMISSION_UNCERTAIN state")
+    _check_app_access(app_row, current_user)
 
     if data.resolution == "confirmed_with_proof":
         ctx = TransitionContext(

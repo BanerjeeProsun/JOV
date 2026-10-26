@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from jovsi.adapters.db.session import get_db
-from jovsi.adapters.db.models import CandidateDB, FactDB, JobDB
+from jovsi.adapters.db.models import CandidateDB, FactDB, JobDB, UserDB
+from jovsi.api.dependencies import get_optional_current_user
 from jovsi.adapters.sanitizer import UntrustedInputSanitizer
 from jovsi.api.schemas import JobImportRequest, JobResponse
 from jovsi.domain.models import DegreeLevel, Fact, FactKind, FactProvenance, FactStatus, Job, JobRequirements, JobStatus
@@ -180,6 +181,7 @@ def get_job_sources() -> List[Dict[str, Any]]:
 @router.post("/jobs/discover", response_model=DiscoverJobsResponse)
 def discover_jobs(
     data: DiscoverJobsRequest,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ) -> DiscoverJobsResponse:
     # 1. Fetch from real external APIs
@@ -194,6 +196,13 @@ def discover_jobs(
     # 2. Fetch candidate facts if candidate_id provided
     candidate_facts: List[Fact] = []
     if data.candidate_id:
+        cand = db.scalar(select(CandidateDB).where(CandidateDB.id == data.candidate_id))
+        if cand and cand.user_id:
+            if not current_user:
+                raise HTTPException(status_code=401, detail="Authentication required")
+            if cand.user_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Access denied: Candidate belongs to another account")
+
         fact_rows = db.scalars(select(FactDB).where(FactDB.candidate_id == data.candidate_id)).all()
         candidate_facts = [
             Fact(

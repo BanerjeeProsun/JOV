@@ -9,10 +9,12 @@ import {
   Moon,
   Sun,
   Search,
+  LogIn,
 } from 'lucide-react'
 import { motion, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
 import { JLogo } from '../brand/JLogo'
 import { useTheme } from '../ThemeProvider'
+import { useAuth } from '../../context/AuthContext'
 import { spring } from '../../design/motion'
 
 export type TabId = 'overview' | 'jobs' | 'queue' | 'tracker' | 'profile' | 'settings' | 'diagnostics'
@@ -47,6 +49,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
   isModalOpen = false,
   className = '',
 }) => {
+  const { user, isAuthenticated, openAuthModal } = useAuth()
   const { resolvedTheme, toggleTheme } = useTheme()
   const reducedMotion = useReducedMotion()
   const [navVisible, setNavVisible] = useState(true)
@@ -191,6 +194,28 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({
                 <Moon className="w-4 h-4" strokeWidth={1.5} />
               )}
             </button>
+
+            <div className="h-4 w-[1px] bg-border mx-0.5" />
+
+            {isAuthenticated ? (
+              <button
+                onClick={() => onSelectTab('settings')}
+                title={user?.display_name ? `${user.display_name} (${user.email})` : user?.email}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium text-text bg-selected/70 border border-border/80 hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="max-w-[72px] truncate">{user?.display_name || user?.email?.split('@')[0] || 'Account'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={openAuthModal}
+                aria-label="Sign in"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium text-text-2 hover:text-text hover:bg-selected transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
       </motion.header>

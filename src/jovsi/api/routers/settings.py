@@ -6,8 +6,13 @@ Non-safety settings only. Safety flags are strictly environment-only.
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from jovsi.config import settings
+from jovsi.adapters.db.session import get_db
+from jovsi.adapters.db.models import UserDB, UserSettingsDB
+from jovsi.api.dependencies import get_optional_current_user
 
 
 router = APIRouter(tags=["Settings"])
@@ -24,15 +29,35 @@ class SettingsUpdate(BaseModel):
 
 
 @router.get("/settings")
-def get_settings() -> Dict[str, Any]:
+def get_settings(
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    suitability_floor = settings.SUITABILITY_FLOOR
+    daily_cap_global = settings.DAILY_CAP_GLOBAL
+    daily_cap_per_portal = settings.DAILY_CAP_PER_PORTAL
+    daily_cap_per_company = settings.DAILY_CAP_PER_COMPANY
+    tz = settings.TIMEZONE
+    allow_real = settings.ALLOW_REAL_SUBMISSION
+
+    if current_user:
+        user_settings = db.scalar(select(UserSettingsDB).where(UserSettingsDB.user_id == current_user.id))
+        if user_settings:
+            suitability_floor = user_settings.suitability_floor
+            daily_cap_global = user_settings.daily_cap_global
+            daily_cap_per_portal = user_settings.daily_cap_per_portal
+            daily_cap_per_company = user_settings.daily_cap_per_company
+            tz = user_settings.timezone
+            allow_real = user_settings.allow_real_submission
+
     return {
-        "suitability_floor": settings.SUITABILITY_FLOOR,
-        "daily_cap_global": settings.DAILY_CAP_GLOBAL,
-        "daily_cap_per_portal": settings.DAILY_CAP_PER_PORTAL,
-        "daily_cap_per_company": settings.DAILY_CAP_PER_COMPANY,
-        "timezone": settings.TIMEZONE,
+        "suitability_floor": suitability_floor,
+        "daily_cap_global": daily_cap_global,
+        "daily_cap_per_portal": daily_cap_per_portal,
+        "daily_cap_per_company": daily_cap_per_company,
+        "timezone": tz,
         "autonomy_level": settings.AUTONOMY_LEVEL.value,
-        "allow_real_submission": settings.ALLOW_REAL_SUBMISSION,
+        "allow_real_submission": allow_real,
         "submit_host_allowlist": settings.SUBMIT_HOST_ALLOWLIST,
         "min_evidence_level": settings.MIN_EVIDENCE_LEVEL.value,
         "llm_enabled": settings.LLM_ENABLED,
@@ -40,7 +65,11 @@ def get_settings() -> Dict[str, Any]:
 
 
 @router.patch("/settings")
-def update_settings(update: SettingsUpdate) -> Dict[str, Any]:
+def update_settings(
+    update: SettingsUpdate,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     if update.suitability_floor is not None:
         settings.SUITABILITY_FLOOR = update.suitability_floor
     if update.daily_cap_global is not None:
@@ -56,4 +85,23 @@ def update_settings(update: SettingsUpdate) -> Dict[str, Any]:
     if update.submit_host_allowlist is not None:
         settings.SUBMIT_HOST_ALLOWLIST = update.submit_host_allowlist
 
-    return get_settings()
+    if current_user:
+        user_settings = db.scalar(select(UserSettingsDB).where(UserSettingsDB.user_id == current_user.id))
+        if not user_settings:
+            user_settings = UserSettingsDB(user_id=current_user.id)
+            db.add(user_settings)
+        if update.suitability_floor is not None:
+            user_settings.suitability_floor = update.suitability_floor
+        if update.daily_cap_global is not None:
+            user_settings.daily_cap_global = update.daily_cap_global
+        if update.daily_cap_per_portal is not None:
+            user_settings.daily_cap_per_portal = update.daily_cap_per_portal
+        if update.daily_cap_per_company is not None:
+            user_settings.daily_cap_per_company = update.daily_cap_per_company
+        if update.timezone is not None:
+            user_settings.timezone = update.timezone
+        if update.allow_real_submission is not None:
+            user_settings.allow_real_submission = update.allow_real_submission
+        db.commit()
+
+    return get_settings(current_user=current_user, db=db)

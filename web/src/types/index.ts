@@ -236,3 +236,13 @@ export interface DiagnosticsData {
   submit_host_allowlist: string[]
   queue_depth: number
 }
+
+export interface User {
+  id: string
+  email: string
+  display_name: string
+  is_verified: boolean
+  is_active: boolean
+  role: string
+  created_at: string
+}

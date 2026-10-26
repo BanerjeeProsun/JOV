@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { MotionConfig } from 'motion/react'
+import { AuthProvider } from './context/AuthContext'
 import { AppShell } from './components/layout/AppShell'
 import type { TabId } from './components/layout/FloatingNav'
 import { CommandPalette } from './components/CommandPalette'
@@ -63,53 +64,55 @@ export const App: React.FC = () => {
   const pageKey = reviewAppId ? `review-${reviewAppId}` : activeTab
 
   return (
-    <MotionConfig reducedMotion="user" transition={spring.smooth}>
-      {/* Intro sequence with shared layoutId="brand-j" handoff */}
-      <IntroSequence onComplete={() => setIntroComplete(true)} />
+    <AuthProvider>
+      <MotionConfig reducedMotion="user" transition={spring.smooth}>
+        {/* Intro sequence with shared layoutId="brand-j" handoff */}
+        <IntroSequence onComplete={() => setIntroComplete(true)} />
 
-      <AppShell
-        activeTab={reviewAppId ? 'queue' : activeTab}
-        onSelectTab={navigate}
-        onOpenCommand={() => setCommandOpen(true)}
-        isModalOpen={commandOpen}
-      >
-        <PageTransition pageKey={pageKey}>
-          {reviewAppId ? (
-            <ApplicationReviewScreen
-              applicationId={reviewAppId}
-              onBack={handleBackFromReview}
-              onNavigateToTracker={handleNavigateToTracker}
-            />
-          ) : (
-            <>
-              {activeTab === 'overview' && (
-                <OverviewScreen onNavigate={handleNavigateFromOverview} />
-              )}
-              {activeTab === 'jobs' && (
-                <JobDiscoveryScreen
-                  onSelectApplication={handleOpenReview}
-                  onNavigateToQueue={() => setActiveTab('queue')}
-                />
-              )}
-              {activeTab === 'queue' && (
-                <ApplicationQueueScreen onSelectApplication={handleOpenReview} />
-              )}
-              {activeTab === 'tracker' && <ApplicationTrackerScreen />}
-              {activeTab === 'profile' && <CandidateProfileScreen />}
-              {activeTab === 'settings' && <SettingsScreen />}
-              {activeTab === 'diagnostics' && <DiagnosticsScreen />}
-            </>
-          )}
-        </PageTransition>
-      </AppShell>
+        <AppShell
+          activeTab={reviewAppId ? 'queue' : activeTab}
+          onSelectTab={navigate}
+          onOpenCommand={() => setCommandOpen(true)}
+          isModalOpen={commandOpen}
+        >
+          <PageTransition pageKey={pageKey}>
+            {reviewAppId ? (
+              <ApplicationReviewScreen
+                applicationId={reviewAppId}
+                onBack={handleBackFromReview}
+                onNavigateToTracker={handleNavigateToTracker}
+              />
+            ) : (
+              <>
+                {activeTab === 'overview' && (
+                  <OverviewScreen onNavigate={handleNavigateFromOverview} />
+                )}
+                {activeTab === 'jobs' && (
+                  <JobDiscoveryScreen
+                    onSelectApplication={handleOpenReview}
+                    onNavigateToQueue={() => setActiveTab('queue')}
+                  />
+                )}
+                {activeTab === 'queue' && (
+                  <ApplicationQueueScreen onSelectApplication={handleOpenReview} />
+                )}
+                {activeTab === 'tracker' && <ApplicationTrackerScreen />}
+                {activeTab === 'profile' && <CandidateProfileScreen />}
+                {activeTab === 'settings' && <SettingsScreen />}
+                {activeTab === 'diagnostics' && <DiagnosticsScreen />}
+              </>
+            )}
+          </PageTransition>
+        </AppShell>
 
-      {/* Global ⌘K Command Palette */}
-      <CommandPalette
-        open={commandOpen}
-        onClose={() => setCommandOpen(false)}
-        onNavigate={navigate}
-      />
-    </MotionConfig>
+        {/* Global ⌘K Command Palette */}
+        <CommandPalette
+          open={commandOpen}
+          onClose={() => setCommandOpen(false)}
+          onNavigate={navigate}
+        />
+      </MotionConfig>
+    </AuthProvider>
   )
 }
 

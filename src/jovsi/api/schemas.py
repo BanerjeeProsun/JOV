@@ -109,3 +109,48 @@ class MasterResumeStatusResponse(BaseModel):
     active_facts: int = 0
     proposed_facts: int = 0
 
+
+class UserRegisterRequest(BaseModel):
+    email: str
+    password: str
+    display_name: str = ""
+    timezone: str = "Asia/Kolkata"
+
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str
+    is_verified: bool
+    is_active: bool
+    role: str
+    created_at: datetime
+
+
+class UserProfileUpdate(BaseModel):
+    display_name: Optional[str] = None
+    timezone: Optional[str] = None
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetSubmit(BaseModel):
+    token: str
+    new_password: str
+
+
+class EmailVerificationSubmit(BaseModel):
+    token: str
+

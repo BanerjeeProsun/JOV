@@ -5,25 +5,53 @@ Zero counters in memory or tables.
 """
 
 from datetime import date
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, distinct, text
 
 from jovsi.adapters.db.session import get_db
-from jovsi.adapters.db.models import ApplicationDB, EvidenceDB, EventDB, GateReportDB, RateLedgerDB, SubmissionAttemptDB
+from jovsi.adapters.db.models import ApplicationDB, CandidateDB, EvidenceDB, EventDB, GateReportDB, RateLedgerDB, SubmissionAttemptDB, UserDB
+from jovsi.api.dependencies import get_optional_current_user
 
 
 router = APIRouter(tags=["Metrics"])
 
 
 @router.get("/metrics/summary")
-def get_metrics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """Calculate real, honest metrics directly from persistent event and evidence tables."""
+def get_metrics_summary(
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Calculate real, honest metrics directly from persistent event and evidence tables for current account."""
+
+    # Base application query scoped to user
+    app_base = select(ApplicationDB.id)
+    if current_user:
+        app_base = app_base.join(CandidateDB, ApplicationDB.candidate_id == CandidateDB.id).where(CandidateDB.user_id == current_user.id)
+    else:
+        app_base = app_base.join(CandidateDB, ApplicationDB.candidate_id == CandidateDB.id).where(CandidateDB.user_id.is_(None))
+
+    user_app_ids = [row[0] for row in db.execute(app_base).fetchall()]
+
+    if not user_app_ids:
+        return {
+            "discovered": 0,
+            "shortlisted": 0,
+            "ready_for_review": 0,
+            "prepared": 0,
+            "confirmed": 0,
+            "uncertain": 0,
+            "failed": 0,
+            "quota_used_today": 0,
+            "confirmation_rate": 0.0,
+            "autonomy_level": "L0_DRY_RUN",
+        }
 
     # 1. Prepared: Distinct applications that have ever reached READY_FOR_REVIEW
     prepared_stmt = select(func.count(distinct(EventDB.application_id))).where(
-        EventDB.to_state == "READY_FOR_REVIEW"
+        EventDB.application_id.in_(user_app_ids),
+        EventDB.to_state == "READY_FOR_REVIEW",
     )
     prepared_count = db.scalar(prepared_stmt) or 0
 
@@ -33,6 +61,7 @@ def get_metrics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
         .join(SubmissionAttemptDB, SubmissionAttemptDB.application_id == ApplicationDB.id)
         .join(EvidenceDB, EvidenceDB.attempt_id == SubmissionAttemptDB.id)
         .where(
+            ApplicationDB.id.in_(user_app_ids),
             ApplicationDB.state == "APPLIED_CONFIRMED",
             EvidenceDB.level.in_(["E2", "E3"]),
         )
@@ -41,29 +70,33 @@ def get_metrics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
     # 3. Uncertain: Applications currently SUBMISSION_UNCERTAIN
     uncertain_count = (
-        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.state == "SUBMISSION_UNCERTAIN")) or 0
+        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.id.in_(user_app_ids), ApplicationDB.state == "SUBMISSION_UNCERTAIN")) or 0
     )
 
     # 4. Failed: Applications currently APPLICATION_FAILED
     failed_count = (
-        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.state == "APPLICATION_FAILED")) or 0
+        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.id.in_(user_app_ids), ApplicationDB.state == "APPLICATION_FAILED")) or 0
     )
 
     # 5. Total Discovered & Shortlisted
     discovered_count = (
-        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.state == "DISCOVERED")) or 0
+        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.id.in_(user_app_ids), ApplicationDB.state == "DISCOVERED")) or 0
     )
     shortlisted_count = (
-        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.state == "SHORTLISTED")) or 0
+        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.id.in_(user_app_ids), ApplicationDB.state == "SHORTLISTED")) or 0
     )
     ready_for_review_count = (
-        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.state == "READY_FOR_REVIEW")) or 0
+        db.scalar(select(func.count(ApplicationDB.id)).where(ApplicationDB.id.in_(user_app_ids), ApplicationDB.state == "READY_FOR_REVIEW")) or 0
     )
 
     # 6. Quota used today (local date)
     today = date.today()
     quota_used_today = (
-        db.scalar(select(func.count(RateLedgerDB.id)).where(RateLedgerDB.local_date == today)) or 0
+        db.scalar(
+            select(func.count(RateLedgerDB.id))
+            .join(SubmissionAttemptDB, RateLedgerDB.attempt_id == SubmissionAttemptDB.id)
+            .where(SubmissionAttemptDB.application_id.in_(user_app_ids), RateLedgerDB.local_date == today)
+        ) or 0
     )
 
     # 7. Confirmation Rate

@@ -33,9 +33,16 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db(target_engine: Engine = engine) -> None:
-    """Create all tables and attach immutability triggers."""
+    """Create all tables, perform lightweight migrations, and attach immutability triggers."""
     Base.metadata.create_all(bind=target_engine)
     with target_engine.begin() as conn:
+        try:
+            res = conn.exec_driver_sql("PRAGMA table_info(candidates)").fetchall()
+            col_names = [r[1] for r in res]
+            if col_names and "user_id" not in col_names:
+                conn.exec_driver_sql("ALTER TABLE candidates ADD COLUMN user_id VARCHAR(36) REFERENCES users(id)")
+        except Exception:
+            pass
         apply_immutability_triggers(conn)
 
 

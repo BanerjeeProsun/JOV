@@ -45,3 +45,16 @@
 - **Decision**:
   - Create `job_sources` table in SQLite storing employer registry with dynamic probing against Greenhouse, Lever, Ashby, and SmartRecruiters public posting endpoints.
   - Untested sources are marked `untested`. Health badges reflect real HTTP fetch outcomes.
+
+## Decision 006: Frontend Authentication & Display Name Greeting Contract
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §3A and non-negotiable rule 6 mandate strict account ownership and a landing/dashboard greeting strictly derived from the authenticated account's persisted display name.
+- **Decision**:
+  - Implemented `AuthProvider` React context (`web/src/context/AuthContext.tsx`) managing current session lifecycle and modal visibility.
+  - Wired `api.getMe()` to update dashboard greeting dynamically:
+    - Authenticated with `user.display_name`: renders `Welcome back, {display_name}.`
+    - Authenticated without display name: renders `Welcome back.`
+    - Unauthenticated: renders `Your next role, in focus.`
+  - Integrated `AuthModal` at application root level and surfaced sign-in triggers in `FloatingNav`, `OverviewScreen`, and `SettingsScreen`.
+  - Added dedicated "Account & Identity" tab in `SettingsScreen` for updating display name and rotating passwords.
