@@ -147,6 +147,7 @@ class StateMachine:
             ApplicationState.READY_FOR_REVIEW: {
                 ApplicationState.AWAITING_USER_INPUT,  # #15
                 ApplicationState.APPROVED,             # #18
+                ApplicationState.MANUAL_HANDOFF,       # #12b (Manual handoff from review)
             },
             ApplicationState.AWAITING_USER_INPUT: {
                 ApplicationState.READY_FOR_REVIEW,     # #16
@@ -240,13 +241,9 @@ class StateMachine:
             if not (ctx.resume_stored and ctx.pdf_stored):
                 raise GuardFailure(10, "Validated resume and PDF must be stored")
 
-        elif from_s == ApplicationState.RESUME_GENERATED:
-            if to_s == ApplicationState.READY_FOR_REVIEW:
-                if ctx.gate_outcome not in ("PASS", "NEEDS_USER"):
-                    raise GuardFailure(11, "Gate outcome must be PASS or NEEDS_USER")
-            elif to_s == ApplicationState.MANUAL_HANDOFF:
-                if not (ctx.is_unsupported_portal or ctx.is_captcha_wall):
-                    raise GuardFailure(12, "Requires unsupported portal, captcha or login wall")
+        elif from_s in (ApplicationState.RESUME_GENERATED, ApplicationState.READY_FOR_REVIEW) and to_s == ApplicationState.MANUAL_HANDOFF:
+            if not (ctx.is_unsupported_portal or ctx.is_captcha_wall or ctx.user_override_reason):
+                raise GuardFailure(12, "Requires unsupported portal, captcha or login wall, or user handoff request")
             elif to_s == ApplicationState.LINK_INVALID:
                 if not ctx.url_invalid:
                     raise GuardFailure(13, "Requires apply page 404")

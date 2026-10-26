@@ -20,6 +20,9 @@ import {
   FileText,
   FileDown,
   AlertCircle,
+  Copy,
+  Check,
+  Package,
 } from 'lucide-react'
 import { spring } from '../design/motion'
 
@@ -50,6 +53,12 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
   const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false)
   const [coverLetterViolations, setCoverLetterViolations] = useState<string[]>([])
 
+  const [fieldsList, setFieldsList] = useState<any[]>([])
+  const [loadingFields, setLoadingFields] = useState(false)
+  const [savingFields, setSavingFields] = useState(false)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [markingManual, setMarkingManual] = useState(false)
+
   const loadApplication = async () => {
     setLoading(true)
     setError(null)
@@ -66,8 +75,69 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
     }
   }
 
+  const loadFields = async () => {
+    setLoadingFields(true)
+    try {
+      const resp = await fetch(`/api/v1/applications/${applicationId}/fields`)
+      if (resp.ok) {
+        const d = await resp.json()
+        if (d.fields) setFieldsList(d.fields)
+      }
+    } catch {
+      // quiet fallback
+    } finally {
+      setLoadingFields(false)
+    }
+  }
+
+  const handleCopy = (key: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
+
+  const handleSaveFields = async () => {
+    setSavingFields(true)
+    setError(null)
+    try {
+      const payload = {
+        fields: fieldsList.map((f) => ({ field_key: f.field_key, value: f.value })),
+      }
+      const resp = await fetch(`/api/v1/applications/${applicationId}/fields`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!resp.ok) throw new Error('Failed to update form fields.')
+      setFeedback('Form fields updated and verified!')
+      await loadFields()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSavingFields(false)
+    }
+  }
+
+  const handleMarkManual = async () => {
+    setMarkingManual(true)
+    setError(null)
+    try {
+      const resp = await fetch(`/api/v1/applications/${applicationId}/mark-submitted-manual`, {
+        method: 'POST',
+      })
+      if (!resp.ok) throw new Error('Failed to mark application as manually submitted.')
+      setFeedback('Application marked as manually submitted!')
+      await loadApplication()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setMarkingManual(false)
+    }
+  }
+
   useEffect(() => {
     loadApplication()
+    loadFields()
   }, [applicationId])
 
   const handleRunGate = async () => {
@@ -613,12 +683,125 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
         {/* Verified Fields Content */}
         {activeTab === 'FIELDS' && (
-          <div className="max-w-[70ch] mx-auto p-6 rounded-2xl border border-border/60 bg-bg-elev-1/30 space-y-3 text-xs font-mono">
-            <h4 className="text-xs uppercase font-semibold text-text-3">Form Field Responses</h4>
-            <div className="p-4 rounded-xl bg-bg-input border border-border/60 text-text space-y-2">
-              <p>Full Name: {candidateDisplayName}</p>
-              <p>Portal Destination: {companyName} Verified Submission Portal</p>
-              <p>Status: Pre-submission verification passed</p>
+          <div className="max-w-[70ch] mx-auto space-y-4">
+            {/* Manual Handoff & Export Action Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-bg-elev-1/40 border border-border/60 text-xs">
+              <div className="flex items-center gap-2 text-text-3 font-mono text-[11px]">
+                <Package className="w-3.5 h-3.5 text-text-2" />
+                <span>Application Kit · Manual Handoff Ready</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {app?.job?.canonical_url && (
+                  <a
+                    href={app.job.canonical_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-text-2" />
+                    <span>Open Portal</span>
+                  </a>
+                )}
+                <a
+                  href={`/api/v1/applications/${applicationId}/package.zip`}
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-text-2" />
+                  <span>Download Kit (.zip)</span>
+                </a>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={markingManual}
+                  onClick={handleMarkManual}
+                  title="Record manual external submission"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-text-2" />
+                  <span>Mark Applied</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Form Fields Card */}
+            <div className="p-6 rounded-2xl border border-border/60 bg-bg-elev-1/30 space-y-4 shadow-1">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-text">Pre-filled Form Responses</h3>
+                  <p className="text-[11px] text-text-3 font-mono mt-0.5">
+                    Grounded in verified candidate facts · One-click clipboard copy
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={savingFields}
+                  onClick={handleSaveFields}
+                >
+                  Save Answers
+                </Button>
+              </div>
+
+              {loadingFields && fieldsList.length === 0 ? (
+                <div className="py-8 text-center text-xs text-text-3 font-mono">
+                  Synthesizing and mapping form inputs…
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {fieldsList.map((f, idx) => (
+                    <div
+                      key={f.field_key || idx}
+                      className="p-3.5 rounded-xl bg-bg-input/60 border border-border/60 hover:border-border transition-colors space-y-1.5 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-text flex items-center gap-1.5">
+                          <span>{f.label}</span>
+                          {f.required && (
+                            <span className="text-[10px] text-text-3 font-mono">(Required)</span>
+                          )}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[9px] font-mono px-2 py-0.5 rounded ${
+                              f.source === 'FACT'
+                                ? 'bg-bg-elev-2 text-text-2 border border-border/40'
+                                : f.source === 'APPROVED_ANSWER'
+                                ? 'bg-bg-elev-2 text-text border border-border/60'
+                                : 'bg-bg-elev-1 text-text-3 border border-border/40'
+                            }`}
+                          >
+                            {f.source === 'FACT' ? 'VERIFIED FACT' : f.source}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(f.field_key, f.value)}
+                            className="p-1 rounded hover:bg-bg-elev-2 text-text-3 hover:text-text transition-colors"
+                            title="Copy answer to clipboard"
+                          >
+                            {copiedKey === f.field_key ? (
+                              <Check className="w-3.5 h-3.5 text-text-2" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <input
+                        type={f.input_type === 'number' ? 'number' : 'text'}
+                        value={f.value}
+                        onChange={(e) => {
+                          const updated = [...fieldsList]
+                          updated[idx] = { ...updated[idx], value: e.target.value }
+                          setFieldsList(updated)
+                        }}
+                        className="app-input text-xs font-mono py-1.5 w-full"
+                        placeholder={`Enter ${f.label.toLowerCase()}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

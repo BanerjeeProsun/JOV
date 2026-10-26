@@ -19,9 +19,9 @@
 | **M8** | Aggregator/Feed Connectors & Manual Import | **COMPLETED** | 171 / 171 | `c396c3d` |
 | **M9** | Eligibility Gates & Explainable Scoring | **COMPLETED** | 181 / 181 | `d536629` |
 | **M10** | Job-Specific Resume Generation & Grounding | **COMPLETED** | 189 / 189 | `af3e280` |
-| **M11** | Cover Letters with Provenance Grounding | **COMPLETED** | 197 / 197 | `[pending]` |
-| **M12** | Application Planning & Manual Handoff | **IN PROGRESS** | - | - |
-| **M13** | External Authenticated-Session Workflow | **PENDING** | - | - |
+| **M11** | Cover Letters with Provenance Grounding | **COMPLETED** | 197 / 197 | `1fdcd0f` |
+| **M12** | Application Planning & Manual Handoff | **COMPLETED** | 201 / 201 | `[pending]` |
+| **M13** | External Authenticated-Session Workflow | **IN PROGRESS** | - | - |
 | **M14** | Validation, Approval & Submission Pipeline | **PENDING** | - | - |
 | **M15** | Dashboard & Settings Integration (Honest Greetings) | **PENDING** | - | - |
 | **M16** | Security Hardening Pass | **PENDING** | - | - |
@@ -319,10 +319,24 @@
     - Package contains: tailored resume (PDF + DOCX), tailored cover letter (PDF + DOCX + TXT), verified field answers JSON (for copy-pasting answers into portal fields), application metadata and direct URL.
     - ZIP archive download endpoint: `GET /api/v1/applications/{app_id}/package.zip` and JSON manifest: `GET /api/v1/applications/{app_id}/package`.
   - Manual Handoff Flow in UI:
-    - "Manual Application Kit" modal / drawer in `ApplicationReviewScreen.tsx` and `ApplicationQueueScreen.tsx`.
-    - One-click copy for each form field answer (Full Name, Email, Phone, LinkedIn, GitHub, Years of Experience, Work Auth, Salary expectation, etc.).
-    - "Download Complete Application Kit (.zip)" button.
-    - "Mark as Manually Submitted" action transitioning state to `SUBMITTED` with manual submission timestamp.
+    - Interactive form field inputs with fact provenance badges ("VERIFIED FACT" / "APPROVED ANSWER").
+    - One-click copy for each form field answer with visual confirmation.
+    - "Download Kit (.zip)" button and direct "Open Portal" link.
+    - "Mark Applied" action transitioning state to `MANUAL_HANDOFF` with immutable `EventDB` record.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 201 passed, 0 failed in 37.01s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.01s.
+- **Definition of Done for M12**: Application planning service, form field mapping from candidate facts, offline ZIP kit export, state machine transition to `MANUAL_HANDOFF`, and interactive UI in `ApplicationReviewScreen.tsx` verified.
+
+---
+
+### Milestone 13: External Authenticated-Session Workflow
+- **Scope**:
+  - Controlled browser session management for external ATS/employer portals requiring authentication.
+  - State machine transitions `RESUME_GENERATED` / `READY_FOR_REVIEW` -> `PAUSED_AUTH` upon encountering login/credential walls.
+  - Candidate-supervised login assistance or secure local credential storage with encryption at rest.
+  - Post-login session resumption with anti-tamper form re-inspection.
+
 
 
 
