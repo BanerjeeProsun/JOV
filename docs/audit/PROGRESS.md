@@ -18,8 +18,8 @@
 | **M7** | Search & Filters: Facets, URL State & UI Wiring | **COMPLETED** | 150 / 150 | `e38e8d4` |
 | **M8** | Aggregator/Feed Connectors & Manual Import | **COMPLETED** | 171 / 171 | `c396c3d` |
 | **M9** | Eligibility Gates & Explainable Scoring | **COMPLETED** | 181 / 181 | `d536629` |
-| **M10** | Job-Specific Resume Generation & Grounding | **IN PROGRESS** | - | - |
-| **M11** | Cover Letters with Provenance Grounding | **PENDING** | - | - |
+| **M10** | Job-Specific Resume Generation & Grounding | **COMPLETED** | 189 / 189 | `[pending]` |
+| **M11** | Cover Letters with Provenance Grounding | **IN PROGRESS** | - | - |
 | **M12** | Application Planning & Manual Handoff | **PENDING** | - | - |
 | **M13** | External Authenticated-Session Workflow | **PENDING** | - | - |
 | **M14** | Validation, Approval & Submission Pipeline | **PENDING** | - | - |
@@ -278,6 +278,30 @@
     - Generates downloadable PDF/DOCX artifacts stored securely.
     - Links generated resume to application record (`ApplicationDB.current_resume_id`).
     - Enforces transition `SHORTLISTED` -> `RESUME_GENERATED` (Guard #10: verified resume & PDF stored).
+  - Resume Editing API:
+    - `PUT /api/v1/applications/{app_id}/resume`: Allows user editing with reverse factual validation, increments version history.
+    - `GET /api/v1/applications/{app_id}/resume/versions`: Returns immutable version history.
+  - Frontend Integration:
+    - `ApplicationReviewScreen.tsx` displays structured sections, bullet points with fact citation tags, and one-click PDF & DOCX export actions.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 189 passed, 0 failed in 34.85s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.15s.
+- **Definition of Done for M10**: Grounded resume generation, 4-way consistency validator (skills, numbers, seniority, verbatim copying), PDF & DOCX rendering, versioned editing endpoint with validation gate, and frontend review screen verified.
+
+---
+
+### Milestone 11: Cover Letters with Provenance Grounding
+- **Scope**:
+  - Grounded Cover Letter Generator:
+    - Synthesizes cover letters strictly grounded in candidate-verified facts and job posting requirements.
+    - Mentions candidate's authentic background, relevant projects/skills, and alignment to company mission.
+    - Never fabricates enthusiasm reasons, non-existent achievements, or false history.
+  - Validation & Editing API:
+    - `PUT /api/v1/applications/{app_id}/cover-letter`: Updates cover letter text, validates for hallucinations and ungrounded statements.
+    - `GET /api/v1/applications/{app_id}/cover-letter/docx` and `txt`: Exports cover letter in DOCX and plain text formats.
+  - Frontend Integration:
+    - Cover Letter tab in `ApplicationReviewScreen.tsx` allowing interactive editing, diff/provenance check, and direct export.
+
 
 
 

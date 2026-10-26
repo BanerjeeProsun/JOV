@@ -498,3 +498,9 @@ class HybridLLMService:
 
 # Global singleton instance
 llm_service = HybridLLMService()
+
+
+def get_llm_provider() -> HybridLLMService:
+    """Return the application's hybrid LLM provider."""
+    return llm_service
+

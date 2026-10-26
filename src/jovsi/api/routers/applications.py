@@ -3,10 +3,10 @@
 import hashlib
 import json
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from jovsi.config import settings
 from jovsi.adapters.db.session import get_db
@@ -21,14 +21,16 @@ from jovsi.adapters.db.models import (
     GateReportDB,
     JobDB,
     ResumeDB,
+    ResumeClaimDB,
     SubmissionAttemptDB,
     UserDB,
 )
 from jovsi.api.dependencies import get_current_user, get_optional_current_user
-from jovsi.domain.models import ApplicationPackage, Fact, FactKind, FactProvenance, FactStatus, JobRequirements
+from jovsi.domain.models import ApplicationPackage, Fact, FactKind, FactProvenance, FactStatus, JobRequirements, StructuredResume, ResumeSection, ResumeBullet
 from jovsi.domain.state_machine import ApplicationState, StateMachine, TransitionContext
 from jovsi.domain.eligibility import EligibilityEngine, RuleOutcome
 from jovsi.domain.scoring import ScoringEngine
+from jovsi.domain.validators import FactualConsistencyValidator
 from jovsi.domain.gate import GateSnapshot, ValidationGate
 from jovsi.services.application_service import ApplicationService
 from jovsi.services.resume import ResumeService
@@ -446,14 +448,22 @@ def generate_resume(
 
     reqs = JobRequirements(**job.requirements)
 
-    resume, report = ResumeService.generate_deterministic_resume(
+    resume, report, generator_name = ResumeService.generate_tailored_resume(
         candidate_name=candidate.display_name,
         facts=domain_facts,
         requirements=reqs,
         job_description_clean=job.description_clean,
+        job_title=job.title_norm,
+        company_name=job.company_norm,
     )
     if not report.is_valid:
-        raise HTTPException(status_code=422, detail="Resume failed factual consistency validation")
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Resume failed factual consistency validation",
+                "violations": [v.model_dump() for v in report.violations],
+            },
+        )
 
     pdf_bytes = ResumeService.render_pdf_bytes(resume)
     pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
@@ -468,17 +478,32 @@ def generate_resume(
     content_dict = resume.model_dump()
     content_dict["cover_letter"] = cover_letter
 
+    max_v = db.scalar(select(func.max(ResumeDB.version)).where(ResumeDB.application_id == app_row.id)) or 0
+    next_version = max_v + 1
+
     resume_db = ResumeDB(
         application_id=app_row.id,
-        version=1,
+        version=next_version,
         content=content_dict,
         sha256=pdf_sha,
-        generator="DETERMINISTIC",
+        generator=generator_name,
         validation_report=report.model_dump(),
     )
     db.add(resume_db)
     db.commit()
     db.refresh(resume_db)
+
+    # Record claims into ResumeClaimDB
+    for section in resume.sections:
+        for bullet in section.bullets:
+            for fid in bullet.fact_ids:
+                claim = ResumeClaimDB(
+                    resume_id=resume_db.id,
+                    claim_text=bullet.text,
+                    fact_id=fid,
+                )
+                db.add(claim)
+    db.commit()
 
     app_row.current_resume_id = resume_db.id
     db.commit()
@@ -491,7 +516,227 @@ def generate_resume(
         pdf_stored=True,
     )
     updated = ApplicationService.transition(db, app_row.id, ApplicationState.RESUME_GENERATED, "Resume stage", app_row.version, ctx=ctx)
-    return {"status": "generated", "state": updated.state, "sha256": pdf_sha, "cover_letter": cover_letter}
+    return {
+        "status": "generated",
+        "state": updated.state,
+        "sha256": pdf_sha,
+        "version": resume_db.version,
+        "generator": generator_name,
+        "cover_letter": cover_letter,
+        "resume": content_dict,
+    }
+
+
+class ResumeUpdateRequest(BaseModel):
+    candidate_name: str
+    email: str
+    phone: str
+    sections: List[ResumeSection]
+
+
+@router.put("/applications/{app_id}/resume")
+def update_resume(
+    app_id: str,
+    data: ResumeUpdateRequest,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Edit structured resume with reverse factual consistency validation."""
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    job = db.scalar(select(JobDB).where(JobDB.id == app_row.job_id))
+    facts_db = db.scalars(select(FactDB).where(FactDB.candidate_id == app_row.candidate_id)).all()
+    domain_facts = [
+        Fact(
+            id=f.id,
+            candidate_id=f.candidate_id,
+            kind=FactKind(f.kind),
+            key=f.key,
+            value=f.value,
+            provenance=FactProvenance(f.provenance),
+            status=FactStatus(f.status),
+        )
+        for f in facts_db
+    ]
+
+    edited_resume = StructuredResume(
+        candidate_name=data.candidate_name,
+        email=data.email,
+        phone=data.phone,
+        sections=data.sections,
+    )
+
+    report = FactualConsistencyValidator.validate_resume(
+        resume=edited_resume,
+        candidate_facts=[f for f in domain_facts if f.is_usable],
+        job_description_clean=job.description_clean if job else None,
+    )
+    if not report.is_valid:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Resume failed factual consistency validation",
+                "violations": [v.model_dump() for v in report.violations],
+            },
+        )
+
+    pdf_bytes = ResumeService.render_pdf_bytes(edited_resume)
+    pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
+
+    latest_resume = db.scalar(
+        select(ResumeDB)
+        .where(ResumeDB.application_id == app_id)
+        .order_by(ResumeDB.version.desc())
+    )
+    cover_letter = latest_resume.content.get("cover_letter") if (latest_resume and isinstance(latest_resume.content, dict)) else None
+
+    max_v = latest_resume.version if latest_resume else 0
+    new_version = max_v + 1
+
+    content_dict = edited_resume.model_dump()
+    if cover_letter:
+        content_dict["cover_letter"] = cover_letter
+
+    new_resume_db = ResumeDB(
+        application_id=app_row.id,
+        version=new_version,
+        content=content_dict,
+        sha256=pdf_sha,
+        generator="USER_EDITED",
+        validation_report=report.model_dump(),
+    )
+    db.add(new_resume_db)
+    db.commit()
+    db.refresh(new_resume_db)
+
+    # Record claims into ResumeClaimDB
+    for section in edited_resume.sections:
+        for bullet in section.bullets:
+            for fid in bullet.fact_ids:
+                claim = ResumeClaimDB(
+                    resume_id=new_resume_db.id,
+                    claim_text=bullet.text,
+                    fact_id=fid,
+                )
+                db.add(claim)
+    db.commit()
+
+    app_row.current_resume_id = new_resume_db.id
+    db.commit()
+
+    return {
+        "status": "updated",
+        "version": new_version,
+        "sha256": pdf_sha,
+        "resume": content_dict,
+    }
+
+
+@router.get("/applications/{app_id}/resume/versions")
+def get_resume_versions(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> List[Dict[str, Any]]:
+    """Retrieve version history of all synthesized resumes for an application."""
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    resumes = db.scalars(
+        select(ResumeDB)
+        .where(ResumeDB.application_id == app_id)
+        .order_by(ResumeDB.version.desc())
+    ).all()
+
+    return [
+        {
+            "id": r.id,
+            "version": r.version,
+            "sha256": r.sha256,
+            "generator": r.generator,
+            "is_current": r.id == app_row.current_resume_id,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in resumes
+    ]
+
+
+@router.get("/applications/{app_id}/resume/pdf")
+def download_resume_pdf(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Download the synthesized resume as a verified PDF artifact."""
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    resume_row = None
+    if app_row.current_resume_id:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.id == app_row.current_resume_id))
+    if not resume_row:
+        resume_row = db.scalar(
+            select(ResumeDB)
+            .where(ResumeDB.application_id == app_id)
+            .order_by(ResumeDB.version.desc())
+        )
+    if not resume_row:
+        raise HTTPException(status_code=404, detail="No resume generated for this application")
+
+    structured = StructuredResume.model_validate(resume_row.content)
+    pdf_bytes = ResumeService.render_pdf_bytes(structured)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="resume-{app_id[:8]}-v{resume_row.version}.pdf"',
+            "X-SHA256": resume_row.sha256,
+        },
+    )
+
+
+@router.get("/applications/{app_id}/resume/docx")
+def download_resume_docx(
+    app_id: str,
+    current_user: Optional[UserDB] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Download the synthesized resume as a formatted Word (.docx) document."""
+    app_row = db.scalar(select(ApplicationDB).where(ApplicationDB.id == app_id))
+    if not app_row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _check_app_access(app_row, current_user)
+
+    resume_row = None
+    if app_row.current_resume_id:
+        resume_row = db.scalar(select(ResumeDB).where(ResumeDB.id == app_row.current_resume_id))
+    if not resume_row:
+        resume_row = db.scalar(
+            select(ResumeDB)
+            .where(ResumeDB.application_id == app_id)
+            .order_by(ResumeDB.version.desc())
+        )
+    if not resume_row:
+        raise HTTPException(status_code=404, detail="No resume generated for this application")
+
+    structured = StructuredResume.model_validate(resume_row.content)
+    docx_bytes = ResumeService.render_docx_bytes(structured)
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f'attachment; filename="resume-{app_id[:8]}-v{resume_row.version}.docx"',
+        },
+    )
 
 
 class CoverLetterUpdate(BaseModel):

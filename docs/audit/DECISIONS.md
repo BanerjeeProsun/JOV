@@ -169,4 +169,29 @@
     - Added matched vs missing skills chips.
     - Added interactive accordion for category score point breakdown (Skills, Experience, Education, Role, Location) and summary explanation.
 
+## Decision 013: Grounded Tailored Resume Generator, Factual Consistency Validator & Artifact Export
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §7.6 requires job-specific tailored resume generation grounded 100% in candidate-verified facts. Any unverified skill, inflated metric/seniority, or verbatim job description phrase (>6 words) must fail validation. Resumes must support user editing with reverse validation, immutable version history, and real PDF + DOCX export.
+- **Decision**:
+  - Implemented `generate_deterministic_resume` and `generate_tailored_resume` in `src/jovsi/services/resume.py`:
+    - Ranks candidate skills by job requirements (required first, then preferred).
+    - Maps experience/project facts to resume bullets with explicit `fact_ids` citations.
+    - Extracts contact details from verified CONTACT facts with character-level consistency.
+    - Generates text PDF via `pypdf` with roundtrip verification and formatted Word documents (.docx) via `python-docx`.
+  - Added full `FactualConsistencyValidator` checks:
+    - Rejects unverified skills (`UNVERIFIED_SKILL`).
+    - Rejects unverified numbers/metrics (`UNVERIFIED_NUMBER`).
+    - Rejects unverified seniority titles (`UNVERIFIED_SENIORITY`).
+    - Rejects verbatim n-gram copying (>6 words) from job descriptions (`VERBATIM_JOB_TEXT`).
+  - Added Application Resume API endpoints in `src/jovsi/api/routers/applications.py`:
+    - `POST /api/v1/applications/{app_id}/generate-resume`: Generates tailored resume, indexes bullet claims in `ResumeClaimDB`, transitions state to `RESUME_GENERATED`.
+    - `PUT /api/v1/applications/{app_id}/resume`: User editing with reverse factual validation, increments version history (`new_version = max_v + 1`), re-indexes claims.
+    - `GET /api/v1/applications/{app_id}/resume/versions`: Returns complete immutable version history.
+    - `GET /api/v1/applications/{app_id}/resume/pdf`: Streams binary PDF document with proper headers.
+    - `GET /api/v1/applications/{app_id}/resume/docx`: Streams binary DOCX document.
+  - Frontend Integration:
+    - Updated `ApplicationReviewScreen.tsx` with structured resume section rendering, fact provenance badges per bullet, and download buttons for PDF and DOCX.
+
+
 

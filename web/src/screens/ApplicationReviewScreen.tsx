@@ -16,6 +16,9 @@ import {
   ExternalLink,
   Edit3,
   Building2,
+  Download,
+  FileText,
+  FileDown,
 } from 'lucide-react'
 import { spring } from '../design/motion'
 
@@ -377,23 +380,92 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
 
         {/* Resume Content */}
         {activeTab === 'RESUME' && (
-          <div className="max-w-[70ch] mx-auto p-8 rounded-2xl border border-border/60 bg-bg-elev-1/30 text-text font-sans leading-relaxed space-y-6 shadow-1">
-            <div className="border-b border-border pb-4">
-              <h2 className="text-2xl font-semibold tracking-tight text-text">
-                {candidateDisplayName}
-              </h2>
-              <p className="text-xs text-text-3 font-mono mt-1">
-                Generated from immutable facts · Provenance verified
-              </p>
+          <div className="max-w-[70ch] mx-auto space-y-4">
+            {/* Download & Provenance Action Bar */}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-bg-elev-1/40 border border-border/60 text-xs">
+              <div className="flex items-center gap-2 text-text-3 font-mono text-[11px]">
+                <FileText className="w-3.5 h-3.5 text-text-2" />
+                <span>Grounded in verified candidate facts</span>
+                <span>·</span>
+                <span>SHA-256 verified</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/v1/applications/${applicationId}/resume/pdf`}
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-text-2" />
+                  <span>Download PDF</span>
+                </a>
+                <a
+                  href={`/api/v1/applications/${applicationId}/resume/docx`}
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                >
+                  <FileDown className="w-3.5 h-3.5 text-text-2" />
+                  <span>Download Word (.docx)</span>
+                </a>
+              </div>
             </div>
 
-            <div className="space-y-4 text-[14px] text-text-2">
-              <p className="font-medium text-text">
-                Targeting: {roleTitle} at {companyName}
-              </p>
-              <p>
-                Synthesized package tailored to required competencies with zero synthetic claims. All experience points correspond to active candidate records.
-              </p>
+            {/* Structured Resume Canvas */}
+            <div className="p-8 rounded-2xl border border-border/60 bg-bg-elev-1/30 text-text font-sans leading-relaxed space-y-6 shadow-1">
+              <div className="border-b border-border pb-4">
+                <h2 className="text-2xl font-bold tracking-tight text-text">
+                  {app?.resume?.candidate_name || candidateDisplayName}
+                </h2>
+                <div className="flex items-center gap-3 text-xs text-text-2 font-mono mt-1">
+                  {app?.resume?.email && <span>{app.resume.email}</span>}
+                  {app?.resume?.phone && (
+                    <>
+                      <span>·</span>
+                      <span>{app.resume.phone}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {app?.resume?.sections && app.resume.sections.length > 0 ? (
+                <div className="space-y-6">
+                  {app.resume.sections.map((section: any, sIdx: number) => (
+                    <div key={sIdx} className="space-y-2.5">
+                      <h3 className="text-xs uppercase font-bold tracking-wider text-text-3 border-b border-border/40 pb-1">
+                        {section.title}
+                      </h3>
+                      <ul className="space-y-2 text-xs text-text-2">
+                        {section.bullets.map((b: any, bIdx: number) => (
+                          <li key={bIdx} className="flex items-start justify-between gap-3 group">
+                            <span className="text-text leading-normal">• {b.text}</span>
+                            {b.fact_ids && b.fact_ids.length > 0 && (
+                              <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                                {b.fact_ids.map((fid: string) => (
+                                  <span
+                                    key={fid}
+                                    title={`Fact ID: ${fid}`}
+                                    className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-bg-elev-2 text-text-3 border border-border/40"
+                                  >
+                                    #{fid.slice(0, 6)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4 text-[14px] text-text-2">
+                  <p className="font-medium text-text">
+                    Targeting: {roleTitle} at {companyName}
+                  </p>
+                  <p>
+                    Synthesized package tailored to required competencies with zero synthetic claims. All experience points correspond to active candidate records.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
