@@ -81,10 +81,12 @@ class DegreeLevel(str, Enum):
 
 class JobRequirements(BaseModel):
     min_degree: Optional[DegreeLevel] = None
+    required_degree_fields: Optional[List[str]] = None
     allowed_graduation_years: Optional[List[int]] = None
     min_experience_months: Optional[int] = None
     work_auth_countries: Optional[List[str]] = None
     mandatory_certifications: Optional[List[str]] = None
+    mandatory_skills: Optional[List[str]] = None
     required_skills: List[str] = Field(default_factory=list)
     preferred_skills: List[str] = Field(default_factory=list)
     responsibilities: List[str] = Field(default_factory=list)

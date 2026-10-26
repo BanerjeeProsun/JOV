@@ -27,7 +27,7 @@ from jovsi.adapters.db.models import (
 from jovsi.api.dependencies import get_current_user, get_optional_current_user
 from jovsi.domain.models import ApplicationPackage, Fact, FactKind, FactProvenance, FactStatus, JobRequirements
 from jovsi.domain.state_machine import ApplicationState, StateMachine, TransitionContext
-from jovsi.domain.eligibility import EligibilityEngine
+from jovsi.domain.eligibility import EligibilityEngine, RuleOutcome
 from jovsi.domain.scoring import ScoringEngine
 from jovsi.domain.gate import GateSnapshot, ValidationGate
 from jovsi.services.application_service import ApplicationService
@@ -284,66 +284,136 @@ def evaluate_application(
     # 2. Phase B: Soft Scoring
     score_res = ScoringEngine.score_job(reqs, domain_facts)
 
+    # Build comprehensive evaluation breakdown
+    score_breakdown = score_res.model_dump()
+    score_breakdown["eligibility"] = {
+        "eligible": phase_a.eligible,
+        "is_uncertain": phase_a.is_uncertain,
+        "overall_outcome": phase_a.overall_outcome.value,
+        "passed_reasons": phase_a.passed_reasons,
+        "disqualifying_reasons": phase_a.disqualifying_reasons,
+        "uncertain_reasons": phase_a.uncertain_reasons,
+        "reason_codes": phase_a.reason_codes,
+        "results": [r.model_dump() for r in phase_a.results],
+    }
+
     # Save evaluation
     eval_db = EvaluationDB(
         job_id=job.id,
         candidate_id=app_row.candidate_id,
         rules_result=phase_a.overall_outcome.value,
         score_total=score_res.total_score,
-        score_breakdown=score_res.model_dump(),
+        score_breakdown=score_breakdown,
     )
     db.add(eval_db)
     db.commit()
 
     # Determine State Transition
-    if not phase_a.passed:
-        target_state = ApplicationState.REJECTED
-        ctx = TransitionContext(
+    current_app_state = ApplicationState(app_row.state)
+
+    if current_app_state == ApplicationState.AWAITING_USER_INPUT:
+        ctx_re = TransitionContext(
             application_id=app_row.id,
-            current_state=ApplicationState(app_row.state),
-            target_state=target_state,
-            hard_rules_failed=True,
-        )
-    elif score_res.total_score >= settings.SUITABILITY_FLOOR:
-        target_state = ApplicationState.SHORTLISTED
-        # First transition to ELIGIBILITY_CHECKED
-        ctx_e = TransitionContext(
-            application_id=app_row.id,
-            current_state=ApplicationState.DISCOVERED,
+            current_state=ApplicationState.AWAITING_USER_INPUT,
             target_state=ApplicationState.ELIGIBILITY_CHECKED,
         )
-        ApplicationService.transition(db, app_row.id, ApplicationState.ELIGIBILITY_CHECKED, "Evaluation finished", app_row.version, ctx=ctx_e)
-        
-        ctx = TransitionContext(
+        app_row = ApplicationService.transition(
+            db, app_row.id, ApplicationState.ELIGIBILITY_CHECKED, "Re-evaluating eligibility", app_row.version, ctx=ctx_re
+        )
+        current_app_state = ApplicationState.ELIGIBILITY_CHECKED
+
+    if phase_a.overall_outcome == RuleOutcome.FAIL:
+        if current_app_state == ApplicationState.DISCOVERED:
+            ctx = TransitionContext(
+                application_id=app_row.id,
+                current_state=ApplicationState.DISCOVERED,
+                target_state=ApplicationState.REJECTED,
+                hard_rules_failed=True,
+            )
+            updated_app = ApplicationService.transition(
+                db, app_row.id, ApplicationState.REJECTED, "Hard rules failed", app_row.version, ctx=ctx
+            )
+        else:
+            ctx = TransitionContext(
+                application_id=app_row.id,
+                current_state=ApplicationState.ELIGIBILITY_CHECKED,
+                target_state=ApplicationState.BELOW_THRESHOLD,
+                score=0.0,
+                suitability_floor=settings.SUITABILITY_FLOOR,
+            )
+            updated_app = ApplicationService.transition(
+                db, app_row.id, ApplicationState.BELOW_THRESHOLD, "Hard rules failed upon re-evaluation", app_row.version, ctx=ctx
+            )
+    elif phase_a.is_uncertain:
+        # Mandatory requirements unstated or low confidence -> transition to AWAITING_USER_INPUT
+        if current_app_state == ApplicationState.DISCOVERED:
+            ctx_e = TransitionContext(
+                application_id=app_row.id,
+                current_state=ApplicationState.DISCOVERED,
+                target_state=ApplicationState.ELIGIBILITY_CHECKED,
+                hard_rules_failed=False,
+            )
+            app_row = ApplicationService.transition(
+                db, app_row.id, ApplicationState.ELIGIBILITY_CHECKED, "Eligibility evaluated (needs candidate review)", app_row.version, ctx=ctx_e
+            )
+        ctx_u = TransitionContext(
             application_id=app_row.id,
             current_state=ApplicationState.ELIGIBILITY_CHECKED,
-            target_state=ApplicationState.SHORTLISTED,
-            score=score_res.total_score,
-            suitability_floor=settings.SUITABILITY_FLOOR,
+            target_state=ApplicationState.AWAITING_USER_INPUT,
+            rules_uncertain=True,
+        )
+        updated_app = ApplicationService.transition(
+            db, app_row.id, ApplicationState.AWAITING_USER_INPUT, "Awaiting candidate input for uncertain requirements", app_row.version, ctx=ctx_u
         )
     else:
-        target_state = ApplicationState.BELOW_THRESHOLD
-        ctx_e = TransitionContext(
-            application_id=app_row.id,
-            current_state=ApplicationState.DISCOVERED,
-            target_state=ApplicationState.ELIGIBILITY_CHECKED,
-        )
-        ApplicationService.transition(db, app_row.id, ApplicationState.ELIGIBILITY_CHECKED, "Evaluation finished", app_row.version, ctx=ctx_e)
-        ctx = TransitionContext(
-            application_id=app_row.id,
-            current_state=ApplicationState.ELIGIBILITY_CHECKED,
-            target_state=ApplicationState.BELOW_THRESHOLD,
-            score=score_res.total_score,
-            suitability_floor=settings.SUITABILITY_FLOOR,
-        )
+        # Hard rules passed
+        if current_app_state == ApplicationState.DISCOVERED:
+            ctx_e = TransitionContext(
+                application_id=app_row.id,
+                current_state=ApplicationState.DISCOVERED,
+                target_state=ApplicationState.ELIGIBILITY_CHECKED,
+                hard_rules_failed=False,
+            )
+            app_row = ApplicationService.transition(
+                db, app_row.id, ApplicationState.ELIGIBILITY_CHECKED, "Eligibility verified", app_row.version, ctx=ctx_e
+            )
 
-    updated_app = ApplicationService.transition(
-        db, app_row.id, target_state, "Scoring", app_row.version, ctx=ctx
-    )
+        if score_res.total_score >= settings.SUITABILITY_FLOOR:
+            ctx = TransitionContext(
+                application_id=app_row.id,
+                current_state=ApplicationState.ELIGIBILITY_CHECKED,
+                target_state=ApplicationState.SHORTLISTED,
+                score=score_res.total_score,
+                suitability_floor=settings.SUITABILITY_FLOOR,
+            )
+            updated_app = ApplicationService.transition(
+                db, app_row.id, ApplicationState.SHORTLISTED, "Suitability score meets threshold", app_row.version, ctx=ctx
+            )
+        else:
+            ctx = TransitionContext(
+                application_id=app_row.id,
+                current_state=ApplicationState.ELIGIBILITY_CHECKED,
+                target_state=ApplicationState.BELOW_THRESHOLD,
+                score=score_res.total_score,
+                suitability_floor=settings.SUITABILITY_FLOOR,
+            )
+            updated_app = ApplicationService.transition(
+                db, app_row.id, ApplicationState.BELOW_THRESHOLD, "Suitability score below threshold", app_row.version, ctx=ctx
+            )
+
     return {
         "rules_result": phase_a.overall_outcome.value,
         "score_total": score_res.total_score,
         "new_state": updated_app.state,
+        "eligible": phase_a.eligible,
+        "is_uncertain": phase_a.is_uncertain,
+        "disqualifying_reasons": phase_a.disqualifying_reasons,
+        "uncertain_reasons": phase_a.uncertain_reasons,
+        "passed_reasons": phase_a.passed_reasons,
+        "matched_skills": score_res.matched_skills,
+        "missing_skills": score_res.missing_skills,
+        "breakdown": score_breakdown,
+        "summary_explanation": score_res.summary_explanation,
     }
 
 

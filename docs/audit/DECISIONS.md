@@ -143,3 +143,30 @@
     - Deep Search modal in `JobDiscoveryScreen.tsx` for restricted boards.
     - Dedicated "Sources & Connectors" tab in `SettingsScreen.tsx` displaying live connector health telemetry cards, status badges, response latency, policy indicators, and "Probe All" action.
 
+## Decision 012: Hard Eligibility Gates, Explainable Scoring & State Machine Routing
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §7.4 mandates strict separation of hard eligibility gates from soft scoring. Unknown mandatory requirements must never auto-pass (must yield `NEEDS_REVIEW` / `UNCERTAIN`). The scoring model must be transparent, 0–100 normalized, and provide explainable reasons.
+- **Decision**:
+  - Enhanced Hard Eligibility Rules in `src/jovsi/domain/eligibility.py`:
+    - Evaluates 9 hard constraints: Degree level, degree field (with related field ontology), graduation year window, minimum experience months, work authorization countries (never assumed, exclusions enforced), mandatory certifications, mandatory skills, location/remote eligibility, and application deadline.
+    - Unknown mandatory requirements (e.g. unrecorded education, unrecorded certifications, unrecorded work auth, low extraction confidence < 0.8) strictly yield `UNCERTAIN` / `NEEDS_REVIEW`.
+    - Produces explainable breakdown lists: `passed_reasons`, `disqualifying_reasons`, `uncertain_reasons`, and `reason_codes`.
+  - Enhanced Soft Scoring Engine in `src/jovsi/domain/scoring.py`:
+    - 100-point soft score model: Skills alignment (35 pts, 75% required / 25% preferred), Experience & projects fit (25 pts, token saturation), Education alignment (15 pts), Role & career fit (15 pts), Location & work mode fit (10 pts).
+    - Dynamic renormalisation when requirements omit categories; flags low confidence when available points < 50.
+    - Populates top-level `matched_skills`, `missing_skills`, and recency assessment notes.
+    - Generates human-readable provenance and scoring summary text.
+  - Integrated State Machine Routing in `POST /api/v1/applications/{id}/evaluate`:
+    - `FAIL` outcome -> transitions to `REJECTED` (Guard #3: `hard_rules_failed=True`).
+    - `UNCERTAIN` / `NEEDS_REVIEW` outcome -> transitions `DISCOVERED` -> `ELIGIBILITY_CHECKED` -> `AWAITING_USER_INPUT` (Guard #6: `rules_uncertain=True`), preventing automatic rejection or unverified auto-pass.
+    - `PASS` outcome -> transitions `DISCOVERED` -> `ELIGIBILITY_CHECKED` -> `SHORTLISTED` (if score >= floor) or `BELOW_THRESHOLD` (if score < floor).
+    - Supports re-evaluation from `AWAITING_USER_INPUT` back to `ELIGIBILITY_CHECKED`.
+    - Saves comprehensive evaluation records in `EvaluationDB`.
+  - Frontend Integration:
+    - Updated `ApplicationQueueScreen.tsx` with dedicated eligibility badges (`PASS` in green, `Needs Review` in amber, `Disqualified` in red).
+    - Added user-facing alert callouts for candidate verification requirements and disqualification reasons.
+    - Added matched vs missing skills chips.
+    - Added interactive accordion for category score point breakdown (Skills, Experience, Education, Role, Location) and summary explanation.
+
+

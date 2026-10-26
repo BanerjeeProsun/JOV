@@ -16,9 +16,9 @@
 | **M5** | Source Registry & Real ATS Connectors | **COMPLETED** | 137 / 137 | `62bd27d` |
 | **M6** | Normalized Schema, Geo Dataset & Parser | **COMPLETED** | 143 / 143 | `e9b4d4b` |
 | **M7** | Search & Filters: Facets, URL State & UI Wiring | **COMPLETED** | 150 / 150 | `e38e8d4` |
-| **M8** | Aggregator/Feed Connectors & Manual Import | **COMPLETED** | 171 / 171 | pending |
-| **M9** | Eligibility Gates & Explainable Scoring | **IN PROGRESS** | - | - |
-| **M10** | Job-Specific Resume Generation & Grounding | **PENDING** | - | - |
+| **M8** | Aggregator/Feed Connectors & Manual Import | **COMPLETED** | 171 / 171 | `c396c3d` |
+| **M9** | Eligibility Gates & Explainable Scoring | **COMPLETED** | 181 / 181 | pending |
+| **M10** | Job-Specific Resume Generation & Grounding | **IN PROGRESS** | - | - |
 | **M11** | Cover Letters with Provenance Grounding | **PENDING** | - | - |
 | **M12** | Application Planning & Manual Handoff | **PENDING** | - | - |
 | **M13** | External Authenticated-Session Workflow | **PENDING** | - | - |
@@ -248,13 +248,36 @@
 ### Milestone 9: Eligibility Gates & Explainable Scoring
 - **Scope**:
   - Separate hard eligibility gates from soft scoring:
-    - Hard constraints: degree level, degree field, graduation year window, work authorization countries, mandatory certifications, mandatory skills, location/remote eligibility.
+    - Hard constraints: degree level, degree field, graduation year window, work authorization countries, mandatory certifications, mandatory skills, location/remote eligibility, application deadline.
     - Hard gate outcome: `PASS`, `FAIL`, or `NEEDS_REVIEW` (when mandatory requirement is unstated in candidate facts). Unknown mandatory requirements never auto-pass.
     - Soft scoring (0–100): skills overlap (required vs preferred), experience fit (months vs required), role similarity, recency.
   - Return explainable breakdown with human-readable reasons (`matched_skills`, `missing_skills`, `disqualifying_reasons`, `uncertain_reasons`).
   - Wire scoring and eligibility into `POST /api/v1/applications/{id}/evaluate` and `EvaluationDB`.
   - Frontend integration:
-    - Display eligibility gate badge (`PASS`, `FAIL`, `NEEDS_REVIEW`) and explainable score card on application/job details.
-    - Render matched vs missing skills chips, disqualifications, and uncertainty banners.
+    - Display eligibility gate badge (`PASS`, `Needs Review`, `Disqualified`) and explainable score card on application items.
+    - Render matched vs missing skills chips, disqualification reasons, and uncertainty verification callouts.
+    - Interactive 100-point category breakdown accordion (Skills, Experience, Education, Role, Location).
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 181 passed, 0 failed in 34.73s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.47s.
+- **Definition of Done for M9**: Strict separation of hard constraints from soft scoring, unknown mandatory requirements yielding `NEEDS_REVIEW`/`UNCERTAIN`, 100-point soft score model, state machine routing (`FAIL` -> `REJECTED`, `UNCERTAIN` -> `AWAITING_USER_INPUT`, `PASS` -> `SHORTLISTED`/`BELOW_THRESHOLD`), and UI explainable breakdowns fully verified.
+
+---
+
+### Milestone 10: Job-Specific Resume Generation & Grounding Validator
+- **Scope**:
+  - Implement Job-Specific Resume Generator:
+    - Synthesizes tailored resumes from verified active facts only (`Fact.is_usable`).
+    - Uses Gemini LLM structured generation when configured, deterministic provenance-backed fallback selector when offline/unconfigured.
+    - Generates cryptographic SHA-256 content hashes of the generated resume and PDF rendering.
+  - Grounding Validator (`FactualConsistencyValidator`):
+    - Rigorous reverse verification: every bullet, claim, company, degree, and skill in the generated resume must have a 1:1 trace to an active verified `FactDB` record.
+    - Prevents hallucinated metrics, unearned skills, and fabricated experience.
+    - Rejects any generated resume with untraceable claims and records audit violation.
+  - PDF/DOCX Artifact Export & Version History:
+    - Generates downloadable PDF/DOCX artifacts stored securely.
+    - Links generated resume to application record (`ApplicationDB.current_resume_id`).
+    - Enforces transition `SHORTLISTED` -> `RESUME_GENERATED` (Guard #10: verified resume & PDF stored).
+
 
 

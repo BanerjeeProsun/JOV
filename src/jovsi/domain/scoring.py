@@ -35,6 +35,9 @@ class EvaluationScore(BaseModel):
     categories: Dict[str, CategoryScore]
     summary_explanation: str
     improvement_hints: List[str] = Field(default_factory=list)
+    matched_skills: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+    recency_notes: Optional[str] = None
 
 
 # Related fields ontology for education
@@ -95,6 +98,41 @@ class ScoringEngine:
         usable_facts = [f for f in active_facts if f.is_usable]
         categories: Dict[str, CategoryScore] = {}
 
+        # Auto-extract candidate preferences / profile hints if not provided
+        if candidate_target_titles is None:
+            candidate_target_titles = []
+            for f in usable_facts:
+                if f.kind == FactKind.PREFERENCE:
+                    for t in f.value.get("target_titles", []):
+                        candidate_target_titles.append(str(t))
+                elif f.kind == FactKind.EXPERIENCE:
+                    title = f.value.get("title")
+                    if title and title not in candidate_target_titles:
+                        candidate_target_titles.append(str(title))
+
+        if candidate_work_modes is None:
+            candidate_work_modes = []
+            for f in usable_facts:
+                if f.kind == FactKind.PREFERENCE:
+                    for m in f.value.get("work_modes", []):
+                        candidate_work_modes.append(str(m))
+            if not candidate_work_modes:
+                candidate_work_modes = ["remote"]
+
+        if candidate_locations is None:
+            candidate_locations = []
+            for f in usable_facts:
+                if f.kind == FactKind.PREFERENCE:
+                    for loc in f.value.get("locations", []):
+                        candidate_locations.append(str(loc))
+                elif f.kind == FactKind.CONTACT:
+                    c = f.value.get("city")
+                    cty = f.value.get("country")
+                    if c:
+                        candidate_locations.append(str(c))
+                    if cty:
+                        candidate_locations.append(str(cty))
+
         # 1. Skills alignment (35 pts)
         cat_skills = cls._score_skills(requirements, usable_facts)
         categories["skills"] = cat_skills
@@ -142,7 +180,22 @@ class ScoringEngine:
         if cat_exp.missing_items:
             hints.append(f"Add experience aligning with: {cat_exp.missing_items[0]}")
 
-        summary = f"Scored {final_score}/100 across {total_available:.0f} available points."
+        # Recency assessment from experience facts
+        recency_notes = None
+        has_recent = any(
+            f.kind == FactKind.EXPERIENCE and (
+                f.value.get("is_current") is True or
+                int(f.value.get("end_year", 0)) >= 2023 or
+                int(f.value.get("graduation_year", 0)) >= 2023
+            )
+            for f in usable_facts
+        )
+        if has_recent:
+            recency_notes = "Candidate has recent or ongoing professional experience (verified within 24-month window)."
+
+        summary = f"Scored {final_score:.1f}/100 across {total_available:.0f} available points."
+        if cat_skills.available_points > 0:
+            summary += f" Skills: {len(cat_skills.matched_items)} matched, {len(cat_skills.missing_items)} missing."
         if is_low_confidence:
             summary += " (LOW CONFIDENCE: job lacks sufficient constraint details)."
 
@@ -152,6 +205,9 @@ class ScoringEngine:
             categories=categories,
             summary_explanation=summary,
             improvement_hints=hints,
+            matched_skills=cat_skills.matched_items,
+            missing_skills=cat_skills.missing_items,
+            recency_notes=recency_notes,
         )
 
     @classmethod

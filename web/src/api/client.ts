@@ -4,6 +4,7 @@ import type {
   DeepLinkItem,
   DiagnosticsData,
   DiscoveredJob,
+  EvaluationDetails,
   Fact,
   Job,
   JobSearchResponse,
@@ -292,7 +293,7 @@ export const api = {
       body: JSON.stringify({ candidate_id: candidateId, job_id: jobId }),
     }),
   evaluateApplication: (id: string) =>
-    request<{ rules_result: string; score_total: number; new_state: string }>(`/api/v1/applications/${id}/evaluate`, {
+    request<EvaluationDetails>(`/api/v1/applications/${id}/evaluate`, {
       method: 'POST',
     }),
   generateResume: (id: string) =>

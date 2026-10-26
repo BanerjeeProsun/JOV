@@ -16,6 +16,10 @@ import {
   Building2,
   User,
   X,
+  AlertCircle,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { spring } from '../design/motion'
 
@@ -31,6 +35,7 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
   const [filterState, setFilterState] = useState<string>('ALL')
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [expandedScores, setExpandedScores] = useState<Record<string, boolean>>({})
 
   const loadApplications = async () => {
     setLoading(true)
@@ -167,6 +172,22 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
     else if (rawState === 'APPLIED_CONFIRMED') blockingLabel = 'Submission independently confirmed by employer portal'
     else if (rawState === 'SUBMISSION_UNCERTAIN') blockingLabel = 'Sent. Awaiting confirmation receipt'
 
+    const evaluation = app.evaluation
+    const rulesResult = evaluation?.rules_result || (app as any).rules_result
+    const scoreVal = evaluation?.score_total ?? (app as any).score
+    const isExpanded = !!expandedScores[app.id]
+
+    const toggleExpanded = () => {
+      setExpandedScores(prev => ({ ...prev, [app.id]: !prev[app.id] }))
+    }
+
+    const matchedSkills = evaluation?.matched_skills || evaluation?.breakdown?.matched_skills || []
+    const missingSkills = evaluation?.missing_skills || evaluation?.breakdown?.missing_skills || []
+    const uncertainReasons = evaluation?.uncertain_reasons || evaluation?.breakdown?.eligibility?.uncertain_reasons || []
+    const disqualifyingReasons = evaluation?.disqualifying_reasons || evaluation?.breakdown?.eligibility?.disqualifying_reasons || []
+    const summaryExplanation = evaluation?.summary_explanation || evaluation?.breakdown?.summary_explanation
+    const categories = evaluation?.breakdown?.categories
+
     return (
       <motion.div
         layout
@@ -175,15 +196,32 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98 }}
         transition={spring.smooth}
-        className="py-5 hover:bg-bg-elev-1/30 px-3 -mx-3 transition-colors"
+        className="py-5 hover:bg-bg-elev-1/30 px-3 -mx-3 transition-colors border-b border-border/40 last:border-0"
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2.5 min-w-0">
+          <div className="space-y-2.5 min-w-0 flex-1">
             <div className="flex items-center gap-3 flex-wrap">
               <h3 className="text-base font-semibold text-text tracking-tight">
                 {roleTitle}
               </h3>
               <StatusBadge state={rawState} />
+
+              {/* Hard Eligibility Gate Badge */}
+              {rulesResult && (
+                rulesResult === 'PASS' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Check className="w-3 h-3" /> Gate: PASS
+                  </span>
+                ) : rulesResult === 'UNCERTAIN' || rulesResult === 'NEEDS_REVIEW' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <AlertCircle className="w-3 h-3" /> Gate: Needs Review
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                    <X className="w-3 h-3" /> Gate: Disqualified
+                  </span>
+                )
+              )}
             </div>
 
             <div className="flex items-center gap-3 text-xs text-text-2">
@@ -205,19 +243,103 @@ export const ApplicationQueueScreen: React.FC<ApplicationQueueScreenProps> = ({
               </p>
             )}
 
-            <div className="flex items-center gap-3 pt-1 text-[11px] font-mono text-text-3">
+            {/* Disqualifying Alert */}
+            {disqualifyingReasons.length > 0 && (
+              <div className="mt-2 p-2.5 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-300 font-sans space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <X className="w-3.5 h-3.5 text-red-400" /> Disqualification Reason:
+                </div>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {disqualifyingReasons.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Uncertain / Needs Review Alert */}
+            {uncertainReasons.length > 0 && (
+              <div className="mt-2 p-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 font-sans space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Candidate Verification Required:
+                </div>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {uncertainReasons.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Matched & Missing Skills Chips */}
+            {(matchedSkills.length > 0 || missingSkills.length > 0) && (
+              <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
+                {matchedSkills.slice(0, 4).map((s, i) => (
+                  <span
+                    key={`m-${i}`}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                  >
+                    ✓ {s}
+                  </span>
+                ))}
+                {missingSkills.slice(0, 3).map((s, i) => (
+                  <span
+                    key={`miss-${i}`}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-bg-elev-2 text-text-3 border border-border/60"
+                  >
+                    – {s}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-1 text-[11px] font-mono text-text-3 flex-wrap">
               <span>ID: {app.id.slice(0, 8)}</span>
               <span>·</span>
               <span>v{app.version}</span>
-              {(app as any).score !== undefined && (app as any).score !== null && (
+              {scoreVal !== undefined && scoreVal !== null && (
                 <>
                   <span>·</span>
-                  <span className="text-text-3 font-medium">
-                    Suitability: {(app as any).score}/100
-                  </span>
+                  <button
+                    onClick={toggleExpanded}
+                    className="inline-flex items-center gap-1 text-text font-medium hover:text-accent-primary transition-colors cursor-pointer"
+                  >
+                    <span>Suitability: {Math.round(scoreVal)}/100</span>
+                    {categories && (
+                      isExpanded ? <ChevronUp className="w-3 h-3 text-text-3" /> : <ChevronDown className="w-3 h-3 text-text-3" />
+                    )}
+                  </button>
                 </>
               )}
             </div>
+
+            {/* Expandable Category Score Breakdown & Provenance Summary */}
+            {isExpanded && categories && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 p-3 rounded bg-bg-elev-1 border border-border/60 text-xs space-y-2.5 font-sans"
+              >
+                <div className="font-medium text-text text-xs flex items-center justify-between">
+                  <span>Category Points Breakdown (100-Point Model)</span>
+                  <span className="font-mono text-text-2">{scoreVal}/100 total</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-[11px]">
+                  {Object.entries(categories).map(([k, c]) => (
+                    <div key={k} className="p-2 rounded bg-bg-elev-2/80 border border-border/40 space-y-0.5">
+                      <div className="text-text-3 uppercase tracking-wider text-[10px]">{k}</div>
+                      <div className="text-text font-semibold">{c.earned_points} / {c.available_points}</div>
+                    </div>
+                  ))}
+                </div>
+                {summaryExplanation && (
+                  <p className="text-[11px] text-text-2 font-sans pt-1 border-t border-border/30">
+                    {summaryExplanation}
+                  </p>
+                )}
+              </motion.div>
+            )}
           </div>
 
           {/* Single Clear Primary Action */}

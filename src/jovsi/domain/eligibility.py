@@ -3,11 +3,14 @@
 Pure Python, zero I/O.
 Evaluates:
 1. Degree level
-2. Graduation year
-3. Minimum experience
-4. Work authorization
-5. Mandatory certifications
-6. Deadline
+2. Degree field
+3. Graduation year window
+4. Minimum experience
+5. Work authorization countries
+6. Mandatory certifications
+7. Mandatory skills
+8. Location / remote eligibility
+9. Application deadline
 """
 
 from datetime import datetime, timezone
@@ -16,12 +19,14 @@ from typing import Any, Dict, List, Optional, Set
 from pydantic import BaseModel, Field
 
 from jovsi.domain.models import DegreeLevel, Fact, FactKind, JobRequirements
+from jovsi.domain.scoring import RELATED_FIELDS, canonical_skill
 
 
 class RuleOutcome(str, Enum):
     PASS = "PASS"
     FAIL = "FAIL"
     UNCERTAIN = "UNCERTAIN"
+    NEEDS_REVIEW = "UNCERTAIN"  # Alias: unknown requirements yield UNCERTAIN / NEEDS_REVIEW
 
 
 class HardRuleResult(BaseModel):
@@ -38,10 +43,17 @@ class PhaseAResult(BaseModel):
     overall_outcome: RuleOutcome  # PASS, FAIL, UNCERTAIN
     results: List[HardRuleResult]
     reason_codes: List[str] = Field(default_factory=list)
+    passed_reasons: List[str] = Field(default_factory=list)
+    disqualifying_reasons: List[str] = Field(default_factory=list)
+    uncertain_reasons: List[str] = Field(default_factory=list)
 
     @property
     def passed(self) -> bool:
         return self.overall_outcome == RuleOutcome.PASS
+
+    @property
+    def needs_review(self) -> bool:
+        return self.overall_outcome in (RuleOutcome.UNCERTAIN, RuleOutcome.NEEDS_REVIEW)
 
 
 DEGREE_RANK = {
@@ -61,7 +73,7 @@ class EligibilityEngine:
         current_time: Optional[datetime] = None,
         candidate_timezone: str = "Asia/Kolkata",
     ) -> PhaseAResult:
-        """Evaluate all 6 hard constraint rules over active candidate facts."""
+        """Evaluate hard constraint rules over active candidate facts."""
         results: List[HardRuleResult] = []
 
         # Filter only usable facts
@@ -71,31 +83,46 @@ class EligibilityEngine:
         if requirements.min_degree is not None:
             results.append(cls._eval_degree(requirements, facts))
 
-        # 2. Graduation Year
+        # 2. Degree Field
+        if requirements.required_degree_fields:
+            results.append(cls._eval_degree_field(requirements, facts))
+
+        # 3. Graduation Year
         if requirements.allowed_graduation_years is not None:
             results.append(cls._eval_grad_year(requirements, facts))
 
-        # 3. Minimum Experience
+        # 4. Minimum Experience
         if requirements.min_experience_months is not None:
             results.append(cls._eval_experience(requirements, facts))
 
-        # 4. Work Authorization
+        # 5. Work Authorization
         if requirements.work_auth_countries:
             results.append(cls._eval_work_auth(requirements, facts))
 
-        # 5. Mandatory Certifications
+        # 6. Mandatory Certifications
         if requirements.mandatory_certifications:
             results.append(cls._eval_certifications(requirements, facts))
 
-        # 6. Deadline
+        # 7. Mandatory Skills
+        if requirements.mandatory_skills:
+            results.append(cls._eval_mandatory_skills(requirements, facts))
+
+        # 8. Location / Remote Eligibility
+        if requirements.accepted_work_modes or requirements.target_locations:
+            results.append(cls._eval_location_eligibility(requirements, facts))
+
+        # 9. Deadline
         if requirements.deadline is not None:
             results.append(cls._eval_deadline(requirements, current_time or datetime.now(timezone.utc)))
 
         # Determine overall outcome
         has_fail = any(r.outcome == RuleOutcome.FAIL for r in results)
-        has_uncertain = any(r.outcome == RuleOutcome.UNCERTAIN for r in results)
+        has_uncertain = any(r.outcome in (RuleOutcome.UNCERTAIN, RuleOutcome.NEEDS_REVIEW) for r in results)
 
-        reason_codes = [r.reason_code for r in results if r.outcome in (RuleOutcome.FAIL, RuleOutcome.UNCERTAIN)]
+        reason_codes = [r.reason_code for r in results if r.outcome in (RuleOutcome.FAIL, RuleOutcome.UNCERTAIN, RuleOutcome.NEEDS_REVIEW)]
+        disqualifying_reasons = [r.message for r in results if r.outcome == RuleOutcome.FAIL]
+        uncertain_reasons = [r.message for r in results if r.outcome in (RuleOutcome.UNCERTAIN, RuleOutcome.NEEDS_REVIEW)]
+        passed_reasons = [r.message for r in results if r.outcome == RuleOutcome.PASS]
 
         if has_fail:
             overall = RuleOutcome.FAIL
@@ -116,6 +143,9 @@ class EligibilityEngine:
             overall_outcome=overall,
             results=results,
             reason_codes=reason_codes,
+            passed_reasons=passed_reasons,
+            disqualifying_reasons=disqualifying_reasons,
+            uncertain_reasons=uncertain_reasons,
         )
 
     @classmethod
@@ -132,9 +162,9 @@ class EligibilityEngine:
         if not edu_facts:
             return HardRuleResult(
                 rule_name="Degree Level",
-                outcome=RuleOutcome.FAIL,
+                outcome=RuleOutcome.UNCERTAIN,
                 reason_code="NO_EDUCATION_FACT",
-                message="No verified education facts found for candidate",
+                message="Candidate has no verified education facts recorded (needs review)",
             )
 
         max_candidate_rank = 0
@@ -165,16 +195,54 @@ class EligibilityEngine:
             )
 
     @classmethod
+    def _eval_degree_field(cls, req: JobRequirements, facts: List[Fact]) -> HardRuleResult:
+        edu_facts = [f for f in facts if f.kind == FactKind.EDUCATION]
+        fields = [str(f.value.get("field", "")).strip().lower() for f in edu_facts if f.value.get("field")]
+        if not fields:
+            return HardRuleResult(
+                rule_name="Degree Field",
+                outcome=RuleOutcome.UNCERTAIN,
+                reason_code="DEGREE_FIELD_UNKNOWN",
+                message="Candidate has no recorded degree field fact (needs review)",
+            )
+
+        required_fields = [f.strip().lower() for f in (req.required_degree_fields or []) if f.strip()]
+        matched = False
+        for rf in required_fields:
+            related = RELATED_FIELDS.get(rf, set())
+            for cf in fields:
+                if cf == rf or rf in cf or cf in rf or any(r in cf for r in related):
+                    matched = True
+                    break
+            if matched:
+                break
+
+        if matched:
+            return HardRuleResult(
+                rule_name="Degree Field",
+                outcome=RuleOutcome.PASS,
+                reason_code="DEGREE_FIELD_PASS",
+                message=f"Candidate degree field aligns with required fields {req.required_degree_fields}",
+            )
+        else:
+            return HardRuleResult(
+                rule_name="Degree Field",
+                outcome=RuleOutcome.FAIL,
+                reason_code="DEGREE_FIELD_DISQUALIFIED",
+                message=f"Candidate degree field {fields} does not match required fields {req.required_degree_fields}",
+            )
+
+    @classmethod
     def _eval_grad_year(cls, req: JobRequirements, facts: List[Fact]) -> HardRuleResult:
         edu_facts = [f for f in facts if f.kind == FactKind.EDUCATION]
         grad_years = [f.value.get("graduation_year") for f in edu_facts if "graduation_year" in f.value]
-        
+
         if not grad_years:
             return HardRuleResult(
                 rule_name="Graduation Year",
                 outcome=RuleOutcome.UNCERTAIN,
                 reason_code="GRAD_YEAR_UNKNOWN",
-                message="Candidate has no recorded graduation year fact",
+                message="Candidate has no recorded graduation year fact (needs review)",
             )
 
         allowed = set(req.allowed_graduation_years or [])
@@ -196,9 +264,7 @@ class EligibilityEngine:
     @classmethod
     def _eval_experience(cls, req: JobRequirements, facts: List[Fact]) -> HardRuleResult:
         exp_facts = [f for f in facts if f.kind == FactKind.EXPERIENCE]
-        total_months = 0
-        for f in exp_facts:
-            total_months += int(f.value.get("duration_months", 0))
+        total_months = sum(int(f.value.get("duration_months", 0)) for f in exp_facts)
 
         req_months = req.min_experience_months or 0
         if total_months >= req_months:
@@ -263,6 +329,14 @@ class EligibilityEngine:
     @classmethod
     def _eval_certifications(cls, req: JobRequirements, facts: List[Fact]) -> HardRuleResult:
         cert_facts = [f for f in facts if f.kind == FactKind.CERTIFICATION]
+        if not cert_facts:
+            return HardRuleResult(
+                rule_name="Mandatory Certifications",
+                outcome=RuleOutcome.UNCERTAIN,
+                reason_code="CERTIFICATION_UNRECORDED",
+                message=f"Candidate has no recorded certification facts (needs review for: {req.mandatory_certifications})",
+            )
+
         candidate_certs = {str(f.value.get("name", "")).strip().lower() for f in cert_facts}
 
         missing = []
@@ -286,6 +360,133 @@ class EligibilityEngine:
             )
 
     @classmethod
+    def _eval_mandatory_skills(cls, req: JobRequirements, facts: List[Fact]) -> HardRuleResult:
+        candidate_skills: Set[str] = set()
+        for f in facts:
+            if f.kind == FactKind.SKILL:
+                s_name = canonical_skill(str(f.value.get("name", "")))
+                if s_name:
+                    candidate_skills.add(s_name)
+            elif f.kind in (FactKind.PROJECT, FactKind.EXPERIENCE):
+                for s in f.value.get("skills", []):
+                    s_name = canonical_skill(str(s))
+                    if s_name:
+                        candidate_skills.add(s_name)
+
+        mandatory = [s for s in (req.mandatory_skills or []) if s.strip()]
+        if not candidate_skills:
+            return HardRuleResult(
+                rule_name="Mandatory Skills",
+                outcome=RuleOutcome.UNCERTAIN,
+                reason_code="SKILLS_UNRECORDED",
+                message=f"Candidate has no recorded skills (needs review for: {mandatory})",
+            )
+
+        missing = [s for s in mandatory if canonical_skill(s) not in candidate_skills]
+        if not missing:
+            return HardRuleResult(
+                rule_name="Mandatory Skills",
+                outcome=RuleOutcome.PASS,
+                reason_code="MANDATORY_SKILLS_PASS",
+                message="All mandatory skills verified in candidate profile",
+            )
+        else:
+            return HardRuleResult(
+                rule_name="Mandatory Skills",
+                outcome=RuleOutcome.FAIL,
+                reason_code="MANDATORY_SKILL_MISSING",
+                message=f"Missing mandatory skills: {missing}",
+            )
+
+    @classmethod
+    def _eval_location_eligibility(
+        cls,
+        req: JobRequirements,
+        facts: List[Fact],
+        candidate_work_modes: Optional[List[str]] = None,
+        candidate_locations: Optional[List[str]] = None,
+    ) -> HardRuleResult:
+        cand_modes: Set[str] = set()
+        cand_locs: Set[str] = set()
+
+        if candidate_work_modes:
+            cand_modes.update(m.lower() for m in candidate_work_modes)
+        if candidate_locations:
+            cand_locs.update(loc.lower() for loc in candidate_locations)
+
+        for f in facts:
+            if f.kind == FactKind.PREFERENCE:
+                for m in f.value.get("work_modes", []):
+                    cand_modes.add(str(m).lower())
+                for loc in f.value.get("locations", []):
+                    cand_locs.add(str(loc).lower())
+            elif f.kind == FactKind.CONTACT:
+                city = f.value.get("city")
+                country = f.value.get("country")
+                if city:
+                    cand_locs.add(str(city).lower())
+                if country:
+                    cand_locs.add(str(country).lower())
+
+        job_modes = {m.lower() for m in (req.accepted_work_modes or ["remote", "hybrid", "onsite"])}
+
+        # If job supports remote and candidate accepts remote (or unstated)
+        if "remote" in job_modes and (not cand_modes or "remote" in cand_modes):
+            return HardRuleResult(
+                rule_name="Location / Remote Eligibility",
+                outcome=RuleOutcome.PASS,
+                reason_code="LOCATION_REMOTE_PASS",
+                message="Job supports remote work mode; candidate is remote-eligible",
+            )
+
+        # If job strictly requires onsite/hybrid without remote
+        if "remote" not in job_modes:
+            if cand_modes and "onsite" not in cand_modes and "hybrid" not in cand_modes:
+                return HardRuleResult(
+                    rule_name="Location / Remote Eligibility",
+                    outcome=RuleOutcome.FAIL,
+                    reason_code="WORK_MODE_INCOMPATIBLE",
+                    message="Job requires on-site or hybrid presence, but candidate preferences exclude non-remote work",
+                )
+
+        # Check target locations if specified
+        target_locs = [tl.lower() for tl in (req.target_locations or []) if tl.strip()]
+        if target_locs:
+            if cand_locs:
+                matched_loc = any(
+                    any(tl in cl or cl in tl for tl in target_locs)
+                    for cl in cand_locs
+                )
+                if matched_loc:
+                    return HardRuleResult(
+                        rule_name="Location / Remote Eligibility",
+                        outcome=RuleOutcome.PASS,
+                        reason_code="LOCATION_PASS",
+                        message=f"Candidate location matches target job location {req.target_locations}",
+                    )
+                else:
+                    return HardRuleResult(
+                        rule_name="Location / Remote Eligibility",
+                        outcome=RuleOutcome.FAIL,
+                        reason_code="LOCATION_MISMATCH",
+                        message=f"Candidate location {list(cand_locs)} does not match required location {req.target_locations}",
+                    )
+            else:
+                return HardRuleResult(
+                    rule_name="Location / Remote Eligibility",
+                    outcome=RuleOutcome.UNCERTAIN,
+                    reason_code="LOCATION_UNKNOWN",
+                    message=f"Job requires presence in {req.target_locations}; candidate location unstated (needs review)",
+                )
+
+        return HardRuleResult(
+            rule_name="Location / Remote Eligibility",
+            outcome=RuleOutcome.PASS,
+            reason_code="LOCATION_PASS",
+            message="Location and work mode requirements met",
+        )
+
+    @classmethod
     def _eval_deadline(cls, req: JobRequirements, current_time: datetime) -> HardRuleResult:
         if req.deadline is None:
             return HardRuleResult(
@@ -295,7 +496,6 @@ class EligibilityEngine:
                 message="No deadline specified",
             )
 
-        # Make sure datetimes are comparable
         deadline = req.deadline
         if deadline.tzinfo is None:
             deadline = deadline.replace(tzinfo=timezone.utc)
@@ -312,7 +512,7 @@ class EligibilityEngine:
 
         diff = (deadline - current_time).total_seconds()
         warning = None
-        if diff <= 86400:  # within 24 hours
+        if diff <= 86400:
             warning = "Deadline is within 24 hours"
 
         return HardRuleResult(

@@ -183,6 +183,50 @@ export interface GateReport {
   is_pass?: boolean
 }
 
+export interface CategoryScoreItem {
+  category_name: string
+  earned_points: number
+  available_points: number
+  matched_items: string[]
+  missing_items: string[]
+  notes?: string
+}
+
+export interface EvaluationDetails {
+  rules_result: string
+  score_total: number
+  new_state?: string
+  eligible?: boolean
+  is_uncertain?: boolean
+  disqualifying_reasons?: string[]
+  uncertain_reasons?: string[]
+  passed_reasons?: string[]
+  matched_skills?: string[]
+  missing_skills?: string[]
+  recency_notes?: string
+  summary_explanation?: string
+  breakdown?: {
+    total_score: number
+    is_low_confidence: boolean
+    formula_version: string
+    categories: Record<string, CategoryScoreItem>
+    summary_explanation: string
+    improvement_hints: string[]
+    matched_skills: string[]
+    missing_skills: string[]
+    recency_notes?: string
+    eligibility?: {
+      eligible: boolean
+      is_uncertain: boolean
+      overall_outcome: string
+      passed_reasons: string[]
+      disqualifying_reasons: string[]
+      uncertain_reasons: string[]
+      reason_codes: string[]
+    }
+  }
+}
+
 export interface Application {
   id: string
   candidate_id?: string
@@ -207,11 +251,7 @@ export interface Application {
     display_name?: string
     timezone?: string
   }
-  evaluation?: {
-    rules_result: string
-    score_total: number
-    breakdown: any
-  }
+  evaluation?: EvaluationDetails
   resume?: any
   gate_report?: GateReport
   attempts?: Array<{

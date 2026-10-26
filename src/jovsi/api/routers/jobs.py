@@ -67,10 +67,12 @@ def import_job(data: JobImportRequest, db: Session = Depends(get_db)) -> JobResp
 
     requirements = JobRequirements(
         min_degree=data.min_degree,
+        required_degree_fields=data.required_degree_fields,
         allowed_graduation_years=data.allowed_graduation_years,
         min_experience_months=data.min_experience_months,
         work_auth_countries=data.work_auth_countries,
         mandatory_certifications=data.mandatory_certifications,
+        mandatory_skills=data.mandatory_skills,
         required_skills=data.required_skills,
         preferred_skills=data.preferred_skills,
         responsibilities=data.responsibilities,
