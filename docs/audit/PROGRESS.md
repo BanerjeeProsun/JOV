@@ -13,9 +13,9 @@
 | **M2** | Configuration, Secrets Hygiene, LLM Provider | **COMPLETED** | 133 / 133 | `7732d7d` |
 | **M3** | Zombie-Code Removal & Mock Isolation | **COMPLETED** | 133 / 133 | `b7feb30` |
 | **M4** | Master-Resume Ingestion & Profile Verification | **COMPLETED** | 133 / 133 | `d04e4ab` |
-| **M5** | Source Registry & Real ATS Connectors | **COMPLETED** | 137 / 137 | `[commit-hash]` |
-| **M6** | Normalized Schema, Geo Dataset & Parser | **IN PROGRESS** | - | - |
-| **M7** | Search & Filters: Facets, URL State & UI Wiring | **PENDING** | - | - |
+| **M5** | Source Registry & Real ATS Connectors | **COMPLETED** | 137 / 137 | `62bd27d` |
+| **M6** | Normalized Schema, Geo Dataset & Parser | **COMPLETED** | 143 / 143 | `[commit-hash]` |
+| **M7** | Search & Filters: Facets, URL State & UI Wiring | **IN PROGRESS** | - | - |
 | **M8** | Aggregator/Feed Connectors & Manual Import | **PENDING** | - | - |
 | **M9** | Eligibility Gates & Explainable Scoring | **PENDING** | - | - |
 | **M10** | Job-Specific Resume Generation & Grounding | **PENDING** | - | - |
@@ -168,3 +168,23 @@
   - `.\.venv\Scripts\pytest.exe -v` -> 137 passed, 0 failed in 32.08s.
   - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.05s.
 - **Definition of Done for M5**: Multi-ATS connector architecture, real DB source registry, dynamic prober, and live UI status indicators operational.
+
+---
+
+### Milestone 6: Normalized Schema, Geo Dataset & Location Parser
+- **Scope**: Extend schema with geographic tables (`geo_countries`, `geo_admin1`, `geo_cities`, `geo_aliases`, `job_locations`), compile comprehensive offline reference dataset covering 249 ISO countries, 98 administrative regions, 517+ global tech-hiring cities, and 858 aliases, and build a deterministic, high-precision offline `LocationParser` with >= 95% precision on real ATS strings.
+- **Implemented & Verified**:
+  - `src/jovsi/adapters/db/models.py`: Added `GeoCountryDB`, `GeoAdmin1DB`, `GeoCityDB`, `GeoAliasDB`, and `JobLocationDB`.
+  - `src/jovsi/services/geo_data.py`: Reference dataset with 249 ISO countries, 98 admin1 states/provinces (US, CA, IN, DE, GB, AU), 517+ unique global tech cities, and 858 canonical aliases with priority hierarchy (`city > admin1 > country`).
+  - `src/jovsi/services/geo.py`:
+    - `ParsedLocation` schema (raw, work_mode, remote_scope, country, admin1, city, confidence).
+    - `LocationParser`: Trie/regex tokenizer, postal code cleaner, work mode/remote scope classifier, multi-location splitter, synonym deduplicator.
+    - `seed_geo_database()`: Idempotent SQLite seeder.
+  - `src/jovsi/adapters/db/session.py`: Automatically calls `seed_geo_database(conn)` during `init_db()`.
+  - `src/jovsi/api/routers/jobs.py`: Wired `JobLocationDB` generation on `import_job` and `discover_jobs`.
+  - `tests/unit/test_geo_parser.py`: 6 tests verifying dataset integrity, SQLite seeding, multi-location splitting, edge case robustness, DB linking, and 100.00% precision on the 109 real-world ATS benchmark suite.
+  - `docs/audit/DECISIONS.md`: Recorded Decision 009.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 143 passed, 0 failed in 32.62s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.06s.
+- **Definition of Done for M6**: Complete normalized geo schema, offline reference dataset, 100% benchmark precision parser, and database seeding verified.

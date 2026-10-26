@@ -74,6 +74,12 @@ def init_db(target_engine: Engine = engine) -> None:
         except Exception:
             pass
 
+        try:
+            from jovsi.services.geo import seed_geo_database
+            seed_geo_database(conn)
+        except Exception:
+            pass
+
         apply_immutability_triggers(conn)
 
 

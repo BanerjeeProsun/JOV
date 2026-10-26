@@ -394,3 +394,75 @@ class JobSourceDB(Base):
     __table_args__ = (
         Index("idx_job_sources_provider_board", "provider", "board_identifier", unique=True),
     )
+
+
+class GeoCountryDB(Base):
+    __tablename__ = "geo_countries"
+
+    code: Mapped[str] = mapped_column(String(2), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    iso3: Mapped[str] = mapped_column(String(3), nullable=False)
+    continent: Mapped[str] = mapped_column(String(2), nullable=False)
+    currency: Mapped[Optional[str]] = mapped_column(String(3), nullable=True)
+
+
+class GeoAdmin1DB(Base):
+    __tablename__ = "geo_admin1"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    country_code: Mapped[str] = mapped_column(String(2), ForeignKey("geo_countries.code"), nullable=False, index=True)
+    admin1_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    admin_type: Mapped[str] = mapped_column(String(32), default="state", nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("country_code", "admin1_code", name="uq_geo_admin1_country_code"),
+        Index("idx_geo_admin1_country", "country_code"),
+    )
+
+
+class GeoCityDB(Base):
+    __tablename__ = "geo_cities"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    country_code: Mapped[str] = mapped_column(String(2), ForeignKey("geo_countries.code"), nullable=False, index=True)
+    admin1_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    ascii_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    population: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        Index("idx_geo_cities_country_name", "country_code", "name"),
+    )
+
+
+class GeoAliasDB(Base):
+    __tablename__ = "geo_aliases"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    alias: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
+    canonical_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    canonical_id: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class JobLocationDB(Base):
+    __tablename__ = "job_locations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), nullable=False, index=True)
+    country_code: Mapped[Optional[str]] = mapped_column(String(2), ForeignKey("geo_countries.code"), nullable=True, index=True)
+    admin1_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    city_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("geo_cities.id"), nullable=True, index=True)
+    work_mode: Mapped[str] = mapped_column(String(16), default="unspecified", nullable=False)
+    remote_scope: Mapped[str] = mapped_column(String(16), default="unspecified", nullable=False)
+    raw_location: Mapped[str] = mapped_column(String(255), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("idx_job_loc_country_workmode", "country_code", "work_mode"),
+        Index("idx_job_loc_city", "city_id"),
+    )

@@ -79,3 +79,21 @@
   - Implemented `SourceRegistryService.probe_source()` to execute real HTTP probing and dynamically assign statuses (`verified_active`, `failing`, `empty`).
   - Added endpoints `/api/v1/jobs/sources/employers` and `/api/v1/jobs/sources/{id}/probe`.
   - Wired live feed indicator pills into `JobDiscoveryScreen.tsx`.
+
+## Decision 009: Normalized Geographic Schema, Offline Reference Dataset & LocationParser
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Location matching was previously naive substring matching against free text (`location.lower() in loc.lower()`), unable to resolve real country, state, city hierarchies, work modes (`remote`, `hybrid`, `onsite`), or common synonyms (e.g. Bangalore vs. Bengaluru, SF Bay Area vs. San Francisco, US vs. USA).
+- **Decision**:
+  - Implemented normalized geographic tables in `models.py`:
+    - `geo_countries`: ISO 3166-1 alpha-2, name, iso3, continent, default currency.
+    - `geo_admin1`: State / province / administrative division codes, country FK, name, admin type.
+    - `geo_cities`: 517+ top global tech-hiring cities with latitude, longitude, timezone, population, country FK, and admin1 code.
+    - `geo_aliases`: 858 canonical aliases mapping common colloquial terms, airport codes, regional abbreviations, and alternate spellings with priority (`city > admin1 > country`).
+    - `job_locations`: Many-to-one junction linking jobs to resolved country, state, city, work mode (`remote`, `hybrid`, `onsite`, `unspecified`), remote scope (`global`, `country`, `state`, `unspecified`), and extraction confidence.
+  - Implemented `LocationParser` in `src/jovsi/services/geo.py`:
+    - Evaluates raw free text against offline regexes, postal cleaners, trie token scanner, and alias maps.
+    - Achieves 100.00% precision on the 109 real-world ATS location benchmark suite (exceeding the >= 95% brief requirement).
+    - Splits multi-location postings ("Hybrid: London or Manchester" -> 2 locations) and deduplicates synonyms ("Bengaluru / Bangalore" -> 1 location).
+  - Integrated idempotent database seeding (`seed_geo_database`) on startup via `init_db()`.
+  - Wired `JobLocationDB` generation into `POST /api/v1/jobs/import` and `POST /api/v1/jobs/discover`.

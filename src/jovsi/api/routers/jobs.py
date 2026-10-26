@@ -8,11 +8,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from jovsi.adapters.db.session import get_db
-from jovsi.adapters.db.models import CandidateDB, FactDB, JobDB, JobSourceDB, UserDB
+from jovsi.adapters.db.models import CandidateDB, FactDB, JobDB, JobLocationDB, JobSourceDB, UserDB
 from jovsi.api.dependencies import get_optional_current_user
 from jovsi.adapters.sanitizer import UntrustedInputSanitizer
 from jovsi.api.schemas import JobImportRequest, JobResponse
 from jovsi.domain.models import DegreeLevel, Fact, FactKind, FactProvenance, FactStatus, Job, JobRequirements, JobStatus
+from jovsi.services.geo import location_parser
 from jovsi.services.job_discovery import JobDiscoveryService, SourceRegistryService
 
 
@@ -89,6 +90,24 @@ def import_job(data: JobImportRequest, db: Session = Depends(get_db)) -> JobResp
     db.add(db_job)
     db.commit()
     db.refresh(db_job)
+
+    # Parse and index locations
+    target_locs = requirements.target_locations or ["Remote"]
+    for raw_loc in target_locs:
+        for pl in location_parser.parse(raw_loc):
+            db.add(
+                JobLocationDB(
+                    job_id=db_job.id,
+                    country_code=pl.country,
+                    admin1_code=pl.admin1,
+                    city_id=pl.city,
+                    work_mode=pl.work_mode_lower,
+                    remote_scope=pl.remote_scope_lower,
+                    raw_location=pl.raw,
+                    confidence=pl.confidence,
+                )
+            )
+    db.commit()
 
     return JobResponse(
         id=db_job.id,
@@ -366,6 +385,23 @@ def discover_jobs(
             db.add(existing)
             db.commit()
             db.refresh(existing)
+
+            # Milestone 6: Parse location and store in job_locations
+            raw_loc = item.get("location", "Remote / Flexible")
+            for pl in location_parser.parse(raw_loc):
+                db.add(
+                    JobLocationDB(
+                        job_id=existing.id,
+                        country_code=pl.country,
+                        admin1_code=pl.admin1,
+                        city_id=pl.city,
+                        work_mode=pl.work_mode_lower,
+                        remote_scope=pl.remote_scope_lower,
+                        raw_location=pl.raw,
+                        confidence=pl.confidence,
+                    )
+                )
+            db.commit()
 
         # Rank against candidate facts
         ranking_info: Dict[str, Any] = {}
