@@ -93,6 +93,25 @@ def test_check_4_resume_hash(passing_snapshot) -> None:
     assert r4.code == "RESUME_HASH_MISMATCH"
 
 
+def test_check_5_resume_factual_fail(passing_snapshot) -> None:
+    passing_snapshot.resume_validation_passed = False
+    report = ValidationGate.evaluate(passing_snapshot)
+    assert report.outcome == GateCheckOutcome.BLOCKED
+    r5 = next(r for r in report.results if r.check_id == 5)
+    assert r5.outcome == GateCheckOutcome.BLOCKED
+    assert r5.code == "RESUME_FACTUAL_FAIL"
+
+
+def test_check_6_cover_letter_fail(passing_snapshot) -> None:
+    passing_snapshot.cover_letter_required = True
+    passing_snapshot.cover_letter_validation_passed = False
+    report = ValidationGate.evaluate(passing_snapshot)
+    assert report.outcome == GateCheckOutcome.BLOCKED
+    r6 = next(r for r in report.results if r.check_id == 6)
+    assert r6.outcome == GateCheckOutcome.BLOCKED
+    assert r6.code == "COVER_LETTER_FAIL"
+
+
 def test_check_7_placeholders_and_cross_contamination(passing_snapshot) -> None:
     # Placeholder
     passing_snapshot.form_values["full_name"] = "Dear {{COMPANY_NAME}}"
@@ -121,6 +140,24 @@ def test_check_9_contact_equality(passing_snapshot) -> None:
     assert r9.outcome == GateCheckOutcome.NEEDS_USER
 
 
+def test_check_10_provenance_missing(passing_snapshot) -> None:
+    passing_snapshot.unresolved_provenance_keys = ["years_experience"]
+    report = ValidationGate.evaluate(passing_snapshot)
+    assert report.outcome == GateCheckOutcome.BLOCKED
+    r10 = next(r for r in report.results if r.check_id == 10)
+    assert r10.outcome == GateCheckOutcome.BLOCKED
+    assert r10.code == "PROVENANCE_MISSING"
+
+
+def test_check_11_contradictory_dates(passing_snapshot) -> None:
+    passing_snapshot.has_date_contradictions = True
+    report = ValidationGate.evaluate(passing_snapshot)
+    assert report.outcome == GateCheckOutcome.BLOCKED
+    r11 = next(r for r in report.results if r.check_id == 11)
+    assert r11.outcome == GateCheckOutcome.BLOCKED
+    assert r11.code == "CONTRADICTORY_DATES"
+
+
 def test_check_12_unapproved_sensitive_field(passing_snapshot) -> None:
     passing_snapshot.approved_sensitive_keys = []  # Not approved!
     report = ValidationGate.evaluate(passing_snapshot)
@@ -136,6 +173,15 @@ def test_check_13_duplicate_detection(passing_snapshot) -> None:
     assert r13.code == "EXACT_DUPLICATE_BLOCKED"
 
 
+def test_check_13_near_duplicate_detection(passing_snapshot) -> None:
+    passing_snapshot.is_near_duplicate = True
+    report = ValidationGate.evaluate(passing_snapshot)
+    assert report.outcome == GateCheckOutcome.NEEDS_USER
+    r13 = next(r for r in report.results if r.check_id == 13)
+    assert r13.outcome == GateCheckOutcome.NEEDS_USER
+    assert r13.code == "NEAR_DUPLICATE_WARNING"
+
+
 def test_check_14_rate_caps(passing_snapshot) -> None:
     passing_snapshot.rate_global_count = 10
     passing_snapshot.rate_global_cap = 10
@@ -143,6 +189,25 @@ def test_check_14_rate_caps(passing_snapshot) -> None:
     r14 = next(r for r in report.results if r.check_id == 14)
     assert r14.outcome == GateCheckOutcome.BLOCKED
     assert r14.code == "RATE_LIMIT_EXCEEDED"
+
+
+def test_check_14_rate_caps_portal_and_company(passing_snapshot) -> None:
+    # Portal cap exceeded
+    passing_snapshot.rate_portal_count = 5
+    passing_snapshot.rate_portal_cap = 5
+    report_portal = ValidationGate.evaluate(passing_snapshot)
+    assert report_portal.outcome == GateCheckOutcome.BLOCKED
+    r14_p = next(r for r in report_portal.results if r.check_id == 14)
+    assert r14_p.outcome == GateCheckOutcome.BLOCKED
+
+    # Reset portal, exceed company
+    passing_snapshot.rate_portal_count = 0
+    passing_snapshot.rate_company_count = 1
+    passing_snapshot.rate_company_cap = 1
+    report_company = ValidationGate.evaluate(passing_snapshot)
+    assert report_company.outcome == GateCheckOutcome.BLOCKED
+    r14_c = next(r for r in report_company.results if r.check_id == 14)
+    assert r14_c.outcome == GateCheckOutcome.BLOCKED
 
 
 def test_check_15_dom_drift(passing_snapshot) -> None:

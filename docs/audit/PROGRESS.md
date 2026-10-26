@@ -357,12 +357,37 @@
 ---
 
 ### Milestone 14: Validation, Approval & Submission Pipeline
-- **Status**: IN PROGRESS
 - **Scope**:
   - 15-Point Hard Validation Gate (§7.11): package hash consistency, candidate facts backing, daily caps check, URL allowlist check, deadline check, work authorization, unmapped fields check, email/phone format, etc.
-  - Supervised Approval Gate (§7.12): Single-use cryptographic approval token (`ApprovalDB`), expiring window (15m), package hash signature binding.
+  - Supervised Approval Gate (§7.12): Single-use cryptographic approval token (`ApprovalDB`), expiring window (24h/15m configurable), package hash signature binding.
   - Submission Submitter against Hostile Mock Portal: automated submission against `mock_portal` (handling network drops, layout drifts, anti-tamper re-verification, E2/E3 evidence capture, HMAC request signing).
   - State machine transitions: `READY_FOR_REVIEW` -> `APPROVED` -> `SUBMISSION_IN_PROGRESS` -> `APPLIED_CONFIRMED` / `SUBMISSION_UNCERTAIN` / `APPLICATION_FAILED`.
+- **Implemented & Verified**:
+  - `src/jovsi/domain/gate.py`:
+    - All 15 pure Python, zero I/O pre-submission checks implemented and tested (`ValidationGate.evaluate(snapshot)`).
+    - Checks: company match, role match boundary, canonical URL & domain allowlist policy, exact resume hash, resume factual consistency, cover letter factual consistency, no placeholders or cross-contamination, all required fields populated, contact equality against verified candidate facts, fact provenance completeness, chronological date consistency, sensitive/legal field user approval, duplicate submission prevention, rate limit quota availability (global, portal, company), DOM skeleton hash matching.
+  - `src/jovsi/api/routers/applications.py`:
+    - `POST /api/v1/applications/{app_id}/gate`: Dynamic gate evaluation wired to database models (`FactDB`, `ResumeDB`, `RateLedgerDB`, `FormSnapshotDB`), transitions to `READY_FOR_REVIEW` on PASS.
+    - `POST /api/v1/applications/{app_id}/approve`: Supervised approval validation enforcing latest gate outcome is `PASS`, binds `package_hash`, generates single-use `ApprovalDB` record, transitions to `APPROVED`.
+    - `POST /api/v1/applications/{app_id}/submit`: Submits application to mock portal using Playwright with `FieldAnswerDB` inputs, transitions state to `APPLIED_CONFIRMED`, `SUBMISSION_UNCERTAIN`, or `APPLICATION_FAILED`.
+  - `tests/unit/test_gate_15_checks.py`: 18 tests covering all 15 checks, edge cases, and failure modes.
+  - `tests/adapters/test_mock_portal_adapter.py`: Contract tests for inspector, form filler, HMAC security, and mock portal adapter.
+  - `tests/failure/test_failure_matrix.py`: 15 adversarial portal tests covering browser crashes, layout drift, rate caps, expired approvals, and lying confirmations.
+  - `tests/integration/test_gate_approval_pipeline.py`: Full API lifecycle test from candidate registration to gate evaluation, hash verification, approval creation, and state transitions.
+- **Verified Command Results**:
+  - `.\.venv\Scripts\pytest.exe -v` -> 211 passed, 0 failed in 37.68s.
+  - `cd web; npm run build` -> `tsc -b && vite build` succeeded in 1.11s.
+- **Definition of Done for M14**: 15-Point Pre-Submission Validation Gate, cryptographic approval tokens, state machine transitions, submission submitter against mock portal, and comprehensive failure matrix verified.
+
+---
+
+### Milestone 15: Dashboard & Settings Integration (Honest Greetings & Controls)
+- **Status**: IN PROGRESS
+- **Scope**:
+  - Real Dashboard Metrics (§7.13): Replace mock metrics with real persisted candidate counts (no fake numbers, no synthetic submissions).
+  - Persisted Display Name Greeting (§7.13): Strict landing/dashboard greeting (`Welcome back, {display_name}.` / `Welcome back.` / `Your next role, in focus.`).
+  - Candidate Settings Persistence (§7.14): Persist candidate search preferences, daily application caps, autonomy level controls (`L0_DRY_RUN` to `L2_SUPERVISED`), and privacy isolation.
+
 
 
 

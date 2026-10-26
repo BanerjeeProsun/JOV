@@ -236,6 +236,48 @@
   - Frontend Integration:
     - Updated `ApplicationReviewScreen.tsx` to render an actionable authentication alert banner when `app.state === 'PAUSED_AUTH'`, offering "Open Sign-In Page" (direct link) and "I Have Signed In — Resume" buttons.
 
+## Decision 017: 15-Point Pre-Submission Validation Gate, Cryptographic Approval & Submission Pipeline
+- **Date**: 2026-10-26
+- **Status**: Accepted
+- **Context**: Recovery brief §7.11 & §7.12 mandate a strict 15-point pre-submission validation gate, explicit single-use supervised package approval bound to an immutable content hash, and an automated submission adapter executing against a hostile mock portal with anti-tamper checking, rate limit enforcement, and E2/E3 evidence collection.
+- **Decision**:
+  - Implemented all 15 pure Python, zero I/O pre-submission checks in `src/jovsi/domain/gate.py` (`ValidationGate.evaluate(snapshot)`):
+    1. Company match (token similarity >= 0.9 or exact normalization).
+    2. Role match (>= 0.85 PASS, 0.6..0.85 NEEDS_USER, < 0.6 BLOCKED).
+    3. Canonical URL & allowed domain policy (blocks untrusted domains).
+    4. Exact resume hash verification.
+    5. Factual consistency verification on resume claims.
+    6. Factual consistency verification on cover letter (if present/required).
+    7. Placeholder and cross-company contamination detection.
+    8. All required form fields populated.
+    9. Character-for-character contact equality against candidate verified facts.
+    10. Full fact provenance tracing (every answer traces to active fact or approved answer).
+    11. Chronological date consistency (no contradictory overlapping dates).
+    12. Sensitive / legal field explicit candidate approval.
+    13. Duplicate submission prevention (blocks exact duplicates, flags near duplicates).
+    14. Daily rate limit quotas available (global, per-portal, and per-company).
+    15. Form skeleton hash anti-tamper verification (detects layout/action DOM drift).
+  - Integrated `run_gate` endpoint (`POST /api/v1/applications/{app_id}/gate`) in `src/jovsi/api/routers/applications.py`:
+    - Evaluates live factual consistency of resume and cover letter against verified candidate facts.
+    - Evaluates duplicate submissions against existing application records.
+    - Evaluates daily submission quotas from `RateLedgerDB`.
+    - Automatically transitions application to `READY_FOR_REVIEW` on gate PASS.
+  - Hardened Supervised Approval (`POST /api/v1/applications/{app_id}/approve`):
+    - Strict check verifying the latest gate report for `package_hash` is `PASS`.
+    - Generates expiring, single-use `ApprovalDB` record bound to `content_hash`.
+    - Transitions state to `APPROVED` with version concurrency checks.
+    - Gracefully handles `ApprovalError` with descriptive HTTP 400.
+  - Automated Submission Pipeline (`POST /api/v1/applications/{app_id}/submit`):
+    - Requires application state to be `APPROVED` and consumes unused valid approval.
+    - Automatically loads pre-filled and approved form answers from `FieldAnswerDB` if present.
+    - Generates HMAC-SHA256 signed `SubmissionTicket`.
+    - Collects multi-tiered evidence (E1/E2/E3) and transitions state to `APPLIED_CONFIRMED`, `SUBMISSION_UNCERTAIN`, or `APPLICATION_FAILED`.
+  - Frontend Integration in `ApplicationReviewScreen.tsx`:
+    - Checklist displaying all 15 gate results with outcome badges and actionable descriptions.
+    - Approve Package Hash button enabled only when all gate checks pass.
+    - Dynamic floating action bar switching between "Approve Package Hash" and "Submit Application".
+
+
 
 
 

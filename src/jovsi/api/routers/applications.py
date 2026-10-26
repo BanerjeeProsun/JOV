@@ -1,6 +1,6 @@
 """Application Pipeline API Router (Blueprint v2.0 Section 14)."""
 
-from datetime import datetime
+from datetime import datetime, date
 import hashlib
 import json
 from typing import Any, Dict, List, Optional
@@ -23,6 +23,7 @@ from jovsi.adapters.db.models import (
     FormSnapshotDB,
     GateReportDB,
     JobDB,
+    RateLedgerDB,
     ResumeDB,
     ResumeClaimDB,
     SubmissionAttemptDB,
@@ -39,7 +40,7 @@ from jovsi.services.application_service import ApplicationService
 from jovsi.services.resume import ResumeService
 from jovsi.services.planning import ApplicationPlanningService, STANDARD_PORTAL_FIELDS
 from jovsi.services.portal_auth import PortalAuthService
-from jovsi.services.submission import ApprovalService, SubmissionService, ReconciliationService
+from jovsi.services.submission import ApprovalError, ApprovalService, ReconciliationService, SubmissionError, SubmissionService
 from jovsi.adapters.portals.base import FieldMappingEntry, FieldMappingPlan
 
 
@@ -1404,6 +1405,68 @@ def run_gate(
     )
     package_hash = package.compute_hash()
 
+    # Dynamic gate snapshot verification checks
+    active_facts_db = db.scalars(select(FactDB).where(FactDB.candidate_id == app_row.candidate_id, FactDB.status == "ACTIVE")).all()
+    domain_facts = [
+        Fact(
+            id=f.id,
+            candidate_id=f.candidate_id,
+            kind=FactKind(f.kind),
+            key=f.key,
+            value=f.value,
+            provenance=FactProvenance(f.provenance),
+            status=FactStatus(f.status),
+        )
+        for f in active_facts_db
+    ]
+    resume_clean = {k: v for k, v in resume_db.content.items() if k != "cover_letter"} if isinstance(resume_db.content, dict) else {}
+    resume_valid = True
+    try:
+        struct_res = StructuredResume(**resume_clean)
+        val_rep = FactualConsistencyValidator.validate_resume(struct_res, domain_facts, job.description_clean)
+        resume_valid = val_rep.is_valid
+    except Exception:
+        pass
+
+    cover_letter_text = resume_db.content.get("cover_letter") if isinstance(resume_db.content, dict) else None
+    cover_letter_valid = True
+    if cover_letter_text:
+        try:
+            cl_rep = FactualConsistencyValidator.validate_cover_letter(
+                cover_letter=cover_letter_text,
+                target_company=job.company_norm,
+                target_role=job.title_norm,
+                verified_facts=active_facts_db,
+            )
+            cover_letter_valid = cl_rep.is_valid
+        except Exception:
+            pass
+
+    prior_app = db.scalar(
+        select(ApplicationDB).where(
+            ApplicationDB.candidate_id == app_row.candidate_id,
+            ApplicationDB.job_id == job.id,
+            ApplicationDB.id != app_row.id,
+            ApplicationDB.state.in_(["APPROVED", "SUBMISSION_IN_PROGRESS", "APPLIED_CONFIRMED", "SUBMISSION_UNCERTAIN"]),
+        )
+    )
+    is_exact_dup = prior_app is not None
+
+    today = date.today()
+    global_rate_count = db.scalar(
+        select(func.count(RateLedgerDB.id)).where(
+            RateLedgerDB.scope == "GLOBAL",
+            RateLedgerDB.local_date == today,
+        )
+    ) or 0
+
+    form_snapshot = db.scalar(
+        select(FormSnapshotDB)
+        .where(FormSnapshotDB.application_id == app_id)
+        .order_by(FormSnapshotDB.created_at.desc())
+    )
+    skel_hash = form_snapshot.dom_hash if form_snapshot else "initial_hash"
+
     snapshot = GateSnapshot(
         application_id=app_row.id,
         package_hash=package_hash,
@@ -1415,15 +1478,20 @@ def run_gate(
         page_url=job.canonical_url,
         attached_file_hash=resume_db.sha256,
         expected_resume_hash=resume_db.sha256,
-        resume_validation_passed=True,
+        resume_validation_passed=resume_valid,
+        cover_letter_required=bool(cover_letter_text),
+        cover_letter_validation_passed=cover_letter_valid,
         form_values=form_values,
         required_field_keys=["full_name", "email", "phone", "experience_years", "legal_attestation"],
         sensitive_field_keys=["legal_attestation"],
         approved_sensitive_keys=["legal_attestation"],
         candidate_verified_email=email_val,
         candidate_verified_phone=phone_val,
-        inspection_form_skeleton_hash="initial_hash",
-        current_form_skeleton_hash="initial_hash",
+        is_exact_duplicate=is_exact_dup,
+        rate_global_count=global_rate_count,
+        rate_global_cap=settings.DAILY_CAP_GLOBAL,
+        inspection_form_skeleton_hash=skel_hash,
+        current_form_skeleton_hash=skel_hash,
     )
 
     report = ValidationGate.evaluate(snapshot)
@@ -1465,13 +1533,16 @@ def approve_application(
         raise HTTPException(status_code=404, detail="Application not found")
     _check_app_access(app_row, current_user)
 
-    approval = ApprovalService.approve_package(
-        db=db,
-        application_id=app_id,
-        package_hash=data.package_hash,
-        approved_by=data.approved_by,
-    )
-    return {"status": "approved", "approval_id": approval.id, "expires_at": approval.expires_at.isoformat()}
+    try:
+        approval = ApprovalService.approve_package(
+            db=db,
+            application_id=app_id,
+            package_hash=data.package_hash,
+            approved_by=data.approved_by,
+        )
+        return {"status": "approved", "approval_id": approval.id, "expires_at": approval.expires_at.isoformat()}
+    except ApprovalError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/applications/{app_id}/submit")
@@ -1503,16 +1574,24 @@ async def submit_application(
     email_val = contact_fact.value.get("email", "") if contact_fact else ""
     phone_val = contact_fact.value.get("phone", "") if contact_fact else ""
 
-    plan = FieldMappingPlan(entries=[
-        FieldMappingEntry(field_key="full_name", value=candidate.display_name if candidate else "", source="FACT"),
-        FieldMappingEntry(field_key="email", value=email_val, source="FACT"),
-        FieldMappingEntry(field_key="phone", value=phone_val, source="FACT"),
-        FieldMappingEntry(field_key="experience_years", value="3", source="FACT"),
-        FieldMappingEntry(field_key="work_auth", value="YES", source="FACT"),
-        FieldMappingEntry(field_key="sponsorship", value="NO", source="FACT"),
-        FieldMappingEntry(field_key="eeo_gender", value="DECLINE", source="FACT"),
-        FieldMappingEntry(field_key="legal_attestation", value="agree", source="APPROVED_ANSWER"),
-    ])
+    field_rows = db.scalars(select(FieldAnswerDB).where(FieldAnswerDB.application_id == app_id)).all()
+    if field_rows:
+        entries = [
+            FieldMappingEntry(field_key=fa.field_key, value=fa.value, source=fa.source)
+            for fa in field_rows
+        ]
+        plan = FieldMappingPlan(entries=entries)
+    else:
+        plan = FieldMappingPlan(entries=[
+            FieldMappingEntry(field_key="full_name", value=candidate.display_name if candidate else "", source="FACT"),
+            FieldMappingEntry(field_key="email", value=email_val, source="FACT"),
+            FieldMappingEntry(field_key="phone", value=phone_val, source="FACT"),
+            FieldMappingEntry(field_key="experience_years", value="3", source="FACT"),
+            FieldMappingEntry(field_key="work_auth", value="YES", source="FACT"),
+            FieldMappingEntry(field_key="sponsorship", value="NO", source="FACT"),
+            FieldMappingEntry(field_key="eeo_gender", value="DECLINE", source="FACT"),
+            FieldMappingEntry(field_key="legal_attestation", value="agree", source="APPROVED_ANSWER"),
+        ])
 
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
@@ -1528,6 +1607,8 @@ async def submit_application(
                 expected_package_hash=approval.content_hash,
             )
             return {"outcome": outcome, "state": outcome}
+        except SubmissionError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         finally:
             await browser.close()
 
