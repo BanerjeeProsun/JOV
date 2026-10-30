@@ -54,6 +54,57 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json()
 }
 
+async function downloadFile(path: string, fallbackFilename: string): Promise<string> {
+  const url = `${BASE_URL}${path}`
+  const response = await fetch(url, {
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    let errorDetail = `Download failed (HTTP ${response.status})`
+    try {
+      const errJson = await response.json()
+      errorDetail = errJson.detail || errJson.title || errorDetail
+    } catch {
+      // not JSON
+    }
+    throw new Error(errorDetail)
+  }
+
+  let filename = fallbackFilename
+  const disposition = response.headers.get('Content-Disposition')
+  if (disposition) {
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+    if (utf8Match && utf8Match[1]) {
+      try {
+        filename = decodeURIComponent(utf8Match[1].trim())
+      } catch {
+        // fallback
+      }
+    } else {
+      const match = disposition.match(/filename="?([^";]+)"?/i)
+      if (match && match[1]) {
+        filename = match[1].trim()
+      }
+    }
+  }
+
+  const blob = await response.blob()
+  const blobUrl = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.style.display = 'none'
+  a.href = blobUrl
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => {
+    window.URL.revokeObjectURL(blobUrl)
+    document.body.removeChild(a)
+  }, 200)
+
+  return filename
+}
+
 export const api = {
   // Authentication & Account Identity
   register: (data: { email: string; password: string; display_name?: string; timezone?: string }) =>
@@ -300,6 +351,10 @@ export const api = {
     request<{ status: string; state: string; sha256: string }>(`/api/v1/applications/${id}/generate-resume`, {
       method: 'POST',
     }),
+  downloadResumePdf: (id: string, fallbackFilename = 'resume.pdf') =>
+    downloadFile(`/api/v1/applications/${id}/resume/pdf`, fallbackFilename),
+  downloadResumeDocx: (id: string, fallbackFilename = 'resume.docx') =>
+    downloadFile(`/api/v1/applications/${id}/resume/docx`, fallbackFilename),
   runGate: (id: string) =>
     request<{ package_hash: string; outcome: string; results: any[] }>(`/api/v1/applications/${id}/gate`, {
       method: 'POST',

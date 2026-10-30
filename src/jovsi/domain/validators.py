@@ -104,26 +104,90 @@ class FactualConsistencyValidator:
 
         # 5. Contact info check: Character-for-character match against CONTACT facts
         contact_facts = [f for f in candidate_facts if f.kind == FactKind.CONTACT and f.is_usable]
-        verified_emails = {str(f.value.get("email", "")).strip().lower() for f in contact_facts}
-        verified_phones = {str(f.value.get("phone", "")).strip() for f in contact_facts}
+        verified_emails = {
+            str(f.value.get("email", "")).strip().lower()
+            for f in contact_facts
+            if f.value.get("email") and str(f.value.get("email", "")).strip().lower() not in ("none", "null", "undefined", "")
+        }
+        verified_phones = {
+            str(f.value.get("phone", "")).strip()
+            for f in contact_facts
+            if f.value.get("phone") and str(f.value.get("phone", "")).strip().lower() not in ("none", "null", "undefined", "")
+        }
 
-        if resume.email.strip().lower() not in verified_emails:
-            violations.append(
-                ValidationViolation(
-                    code="CONTACT_EMAIL_MISMATCH",
-                    entity=resume.email,
-                    message=f"Resume email '{resume.email}' does not match verified CONTACT facts character-for-character",
+        if verified_emails:
+            clean_email = (resume.email or "").strip().lower()
+            if clean_email in ("none", "null", "undefined"):
+                violations.append(
+                    ValidationViolation(
+                        code="INVALID_CONTACT_LITERAL",
+                        entity=resume.email,
+                        message="Resume email contains invalid literal 'None'/'null'/'undefined'",
+                    )
                 )
-            )
+            elif clean_email not in verified_emails:
+                violations.append(
+                    ValidationViolation(
+                        code="CONTACT_EMAIL_MISMATCH",
+                        entity=resume.email,
+                        message=f"Resume email '{resume.email}' does not match verified CONTACT facts character-for-character",
+                    )
+                )
+        elif resume.email:
+            clean_email = resume.email.strip().lower()
+            if clean_email in ("none", "null", "undefined"):
+                violations.append(
+                    ValidationViolation(
+                        code="INVALID_CONTACT_LITERAL",
+                        entity=resume.email,
+                        message="Resume email contains invalid literal 'None'/'null'/'undefined'",
+                    )
+                )
+            else:
+                violations.append(
+                    ValidationViolation(
+                        code="CONTACT_EMAIL_MISMATCH",
+                        entity=resume.email,
+                        message=f"Resume email '{resume.email}' is not supported by any verified CONTACT fact",
+                    )
+                )
 
-        if resume.phone.strip() not in verified_phones:
-            violations.append(
-                ValidationViolation(
-                    code="CONTACT_PHONE_MISMATCH",
-                    entity=resume.phone,
-                    message=f"Resume phone '{resume.phone}' does not match verified CONTACT facts character-for-character",
+        if verified_phones:
+            clean_phone = (resume.phone or "").strip()
+            if clean_phone.lower() in ("none", "null", "undefined"):
+                violations.append(
+                    ValidationViolation(
+                        code="INVALID_CONTACT_LITERAL",
+                        entity=resume.phone,
+                        message="Resume phone contains invalid literal 'None'/'null'/'undefined'",
+                    )
                 )
-            )
+            elif clean_phone not in verified_phones:
+                violations.append(
+                    ValidationViolation(
+                        code="CONTACT_PHONE_MISMATCH",
+                        entity=resume.phone,
+                        message=f"Resume phone '{resume.phone}' does not match verified CONTACT facts character-for-character",
+                    )
+                )
+        elif resume.phone:
+            clean_phone = resume.phone.strip()
+            if clean_phone.lower() in ("none", "null", "undefined"):
+                violations.append(
+                    ValidationViolation(
+                        code="INVALID_CONTACT_LITERAL",
+                        entity=resume.phone,
+                        message="Resume phone contains invalid literal 'None'/'null'/'undefined'",
+                    )
+                )
+            else:
+                violations.append(
+                    ValidationViolation(
+                        code="CONTACT_PHONE_MISMATCH",
+                        entity=resume.phone,
+                        message=f"Resume phone '{resume.phone}' is not supported by any verified CONTACT fact",
+                    )
+                )
 
         # Build 6-word n-grams for job description contamination check
         job_ngrams: Set[str] = set()
@@ -201,7 +265,9 @@ class FactualConsistencyValidator:
 
                 # 3. Skills Section Check
                 if is_skills_section:
-                    bullet_tokens = normalize_tokens(bullet.text)
+                    # If bullet is categorized (e.g. "Languages: Python, JavaScript"), validate only the skills list
+                    skills_text = bullet.text.split(":", 1)[1] if ":" in bullet.text else bullet.text
+                    bullet_tokens = normalize_tokens(skills_text)
                     for tok in bullet_tokens:
                         # Must exist in SKILL facts or explicit skill lists of projects/experience
                         has_skill_fact = any(

@@ -21,6 +21,8 @@ class FactKind(str, Enum):
     CERTIFICATION = "CERTIFICATION"
     WORK_AUTH = "WORK_AUTH"
     PREFERENCE = "PREFERENCE"
+    SUMMARY = "SUMMARY"
+    ACHIEVEMENT = "ACHIEVEMENT"
 
 
 class FactProvenance(str, Enum):
@@ -172,17 +174,45 @@ class ResumeBullet(BaseModel):
             raise ValueError("A resume bullet must cite at least one verified fact_id")
         return v
 
+    @field_validator("text", mode="before")
+    @classmethod
+    def clean_text(cls, v: Any) -> str:
+        s = str(v or "").strip()
+        import re
+        s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", s)
+        s = re.sub(r"^[•\*\-\s]+", "", s).strip()
+        return s
+
 
 class ResumeSection(BaseModel):
     title: str
     bullets: List[ResumeBullet] = Field(default_factory=list)
+    entries: Optional[List[Dict[str, Any]]] = None
 
 
 class StructuredResume(BaseModel):
     candidate_name: str
-    email: str
-    phone: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    headline: Optional[str] = None
+    location: Optional[str] = None
+    linkedin: Optional[str] = None
+    github: Optional[str] = None
+    website: Optional[str] = None
+    summary: Optional[str] = None
     sections: List[ResumeSection] = Field(default_factory=list)
+
+    @field_validator("phone", "email", "headline", "location", "linkedin", "github", "website", "summary", mode="before")
+    @classmethod
+    def clean_empty_or_none_strings(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        s = str(v).strip()
+        if s.lower() in ("none", "null", "undefined", ""):
+            return None
+        import re
+        s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", s)
+        return s
 
 
 class ApplicationPackage(BaseModel):

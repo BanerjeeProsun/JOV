@@ -464,11 +464,12 @@ async def upload_master_resume(
     # Extract structured entities
     entities = MasterResumeParser.extract_structured_entities(raw_text)
 
-    # Update candidate display_name if candidate name was extracted and not already set
+    # Update candidate display_name if candidate name was extracted and more complete
     extracted_name = entities.get("name")
-    if extracted_name and extracted_name != "Candidate" and (candidate.display_name in ("Candidate", "Ada Lovelace", "")):
-        candidate.display_name = extracted_name
-        db.commit()
+    if extracted_name and extracted_name != "Candidate":
+        if candidate.display_name in ("Candidate", "Ada Lovelace", "", None) or len(extracted_name.split()) > len((candidate.display_name or "").split()):
+            candidate.display_name = extracted_name
+            db.commit()
 
     # Generate proposed facts
     proposed_fact_dicts = MasterResumeParser.build_proposed_facts(candidate_id, doc.id, entities)

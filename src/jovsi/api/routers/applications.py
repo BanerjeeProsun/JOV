@@ -37,7 +37,7 @@ from jovsi.domain.scoring import ScoringEngine
 from jovsi.domain.validators import FactualConsistencyValidator
 from jovsi.domain.gate import GateSnapshot, ValidationGate
 from jovsi.services.application_service import ApplicationService
-from jovsi.services.resume import ResumeService
+from jovsi.services.resume import ResumeService, generate_resume_filename
 from jovsi.services.planning import ApplicationPlanningService, STANDARD_PORTAL_FIELDS
 from jovsi.services.portal_auth import PortalAuthService
 from jovsi.services.submission import ApprovalError, ApprovalService, ReconciliationService, SubmissionError, SubmissionService
@@ -709,12 +709,35 @@ def download_resume_pdf(
     structured = StructuredResume.model_validate(resume_row.content)
     pdf_bytes = ResumeService.render_pdf_bytes(structured)
 
+    # Resolve candidate display name for filename
+    cand_name = structured.candidate_name
+    if not cand_name or cand_name.lower() in ("candidate", "prosun", "none", "null", "undefined"):
+        cand_row = db.scalar(select(CandidateDB).where(CandidateDB.id == app_row.candidate_id))
+        if cand_row and cand_row.display_name and cand_row.display_name.lower() not in ("candidate", "none", "null"):
+            cand_name = cand_row.display_name
+        contact_fact = db.scalar(
+            select(FactDB).where(
+                FactDB.candidate_id == app_row.candidate_id,
+                FactDB.kind == "CONTACT",
+                FactDB.status == "ACTIVE"
+            )
+        )
+        if contact_fact and isinstance(contact_fact.value, dict):
+            if contact_fact.value.get("display_name"):
+                cand_name = contact_fact.value["display_name"]
+
+    filename = generate_resume_filename(cand_name, extension="pdf")
+    from urllib.parse import quote
+    encoded_filename = quote(filename)
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="resume-{app_id[:8]}-v{resume_row.version}.pdf"',
+            "Content-Disposition": f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}',
+            "Content-Length": str(len(pdf_bytes)),
             "X-SHA256": resume_row.sha256,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
         },
     )
 
@@ -746,11 +769,34 @@ def download_resume_docx(
     structured = StructuredResume.model_validate(resume_row.content)
     docx_bytes = ResumeService.render_docx_bytes(structured)
 
+    # Resolve candidate display name for filename
+    cand_name = structured.candidate_name
+    if not cand_name or cand_name.lower() in ("candidate", "prosun", "none", "null", "undefined"):
+        cand_row = db.scalar(select(CandidateDB).where(CandidateDB.id == app_row.candidate_id))
+        if cand_row and cand_row.display_name and cand_row.display_name.lower() not in ("candidate", "none", "null"):
+            cand_name = cand_row.display_name
+        contact_fact = db.scalar(
+            select(FactDB).where(
+                FactDB.candidate_id == app_row.candidate_id,
+                FactDB.kind == "CONTACT",
+                FactDB.status == "ACTIVE"
+            )
+        )
+        if contact_fact and isinstance(contact_fact.value, dict):
+            if contact_fact.value.get("display_name"):
+                cand_name = contact_fact.value["display_name"]
+
+    filename = generate_resume_filename(cand_name, extension="docx")
+    from urllib.parse import quote
+    encoded_filename = quote(filename)
+
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={
-            "Content-Disposition": f'attachment; filename="resume-{app_id[:8]}-v{resume_row.version}.docx"',
+            "Content-Disposition": f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}',
+            "Content-Length": str(len(docx_bytes)),
+            "Cache-Control": "no-cache, no-store, must-revalidate",
         },
     )
 

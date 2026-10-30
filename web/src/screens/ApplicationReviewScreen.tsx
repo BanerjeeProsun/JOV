@@ -59,6 +59,36 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [markingManual, setMarkingManual] = useState(false)
   const [resumingAuth, setResumingAuth] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [downloadingDocx, setDownloadingDocx] = useState(false)
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true)
+    setError(null)
+    try {
+      const candidateName = app?.resume?.candidate_name || (app?.candidate as any)?.display_name || 'Candidate'
+      const fallback = `${candidateName.replace(/\s+/g, '_')}_CV.pdf`
+      await api.downloadResumePdf(applicationId, fallback)
+    } catch (err: any) {
+      setError(err.message || 'Failed to download PDF resume.')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
+  const handleDownloadDocx = async () => {
+    setDownloadingDocx(true)
+    setError(null)
+    try {
+      const candidateName = app?.resume?.candidate_name || (app?.candidate as any)?.display_name || 'Candidate'
+      const fallback = `${candidateName.replace(/\s+/g, '_')}_CV.docx`
+      await api.downloadResumeDocx(applicationId, fallback)
+    } catch (err: any) {
+      setError(err.message || 'Failed to download Word resume.')
+    } finally {
+      setDownloadingDocx(false)
+    }
+  }
 
   const handleResumeAuth = async () => {
     setResumingAuth(true)
@@ -555,22 +585,32 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
                 <span>SHA-256 verified</span>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={`/api/v1/applications/${applicationId}/resume/pdf`}
-                  download
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 active:scale-95 text-text border border-border/60 transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5 text-text-2" />
-                  <span>Download PDF</span>
-                </a>
-                <a
-                  href={`/api/v1/applications/${applicationId}/resume/docx`}
-                  download
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 text-text border border-border/60 transition-colors"
+                  {downloadingPdf ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-text-2" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5 text-text-2" />
+                  )}
+                  <span>{downloadingPdf ? 'Downloading…' : 'Download PDF'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadDocx}
+                  disabled={downloadingDocx}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-elev-2 hover:bg-bg-elev-3 active:scale-95 text-text border border-border/60 transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  <FileDown className="w-3.5 h-3.5 text-text-2" />
-                  <span>Download Word (.docx)</span>
-                </a>
+                  {downloadingDocx ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-text-2" />
+                  ) : (
+                    <FileDown className="w-3.5 h-3.5 text-text-2" />
+                  )}
+                  <span>{downloadingDocx ? 'Downloading…' : 'Download Word (.docx)'}</span>
+                </button>
               </div>
             </div>
 
@@ -580,12 +620,47 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
                 <h2 className="text-2xl font-bold tracking-tight text-text">
                   {app?.resume?.candidate_name || candidateDisplayName}
                 </h2>
-                <div className="flex items-center gap-3 text-xs text-text-2 font-mono mt-1">
+                {app?.resume?.headline && (
+                  <p className="text-sm font-medium text-text-2 mt-0.5">{app.resume.headline}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-2 font-mono mt-2">
                   {app?.resume?.email && <span>{app.resume.email}</span>}
                   {app?.resume?.phone && (
                     <>
                       <span>·</span>
                       <span>{app.resume.phone}</span>
+                    </>
+                  )}
+                  {app?.resume?.location && (
+                    <>
+                      <span>·</span>
+                      <span>{app.resume.location}</span>
+                    </>
+                  )}
+                  {app?.resume?.linkedin && (
+                    <>
+                      <span>·</span>
+                      <a
+                        href={app.resume.linkedin.startsWith('http') ? app.resume.linkedin : `https://${app.resume.linkedin}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline hover:text-text"
+                      >
+                        {app.resume.linkedin.replace(/^https?:\/\//, '')}
+                      </a>
+                    </>
+                  )}
+                  {app?.resume?.github && (
+                    <>
+                      <span>·</span>
+                      <a
+                        href={app.resume.github.startsWith('http') ? app.resume.github : `https://${app.resume.github}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline hover:text-text"
+                      >
+                        {app.resume.github.replace(/^https?:\/\//, '')}
+                      </a>
                     </>
                   )}
                 </div>
@@ -598,26 +673,70 @@ export const ApplicationReviewScreen: React.FC<ApplicationReviewScreenProps> = (
                       <h3 className="text-xs uppercase font-bold tracking-wider text-text-3 border-b border-border/40 pb-1">
                         {section.title}
                       </h3>
-                      <ul className="space-y-2 text-xs text-text-2">
-                        {section.bullets.map((b: any, bIdx: number) => (
-                          <li key={bIdx} className="flex items-start justify-between gap-3 group">
-                            <span className="text-text leading-normal">• {b.text}</span>
-                            {b.fact_ids && b.fact_ids.length > 0 && (
-                              <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                                {b.fact_ids.map((fid: string) => (
-                                  <span
-                                    key={fid}
-                                    title={`Fact ID: ${fid}`}
-                                    className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-bg-elev-2 text-text-3 border border-border/40"
-                                  >
-                                    #{fid.slice(0, 6)}
-                                  </span>
-                                ))}
+                      {section.entries && section.entries.length > 0 ? (
+                        <div className="space-y-4">
+                          {section.entries.map((entry: any, eIdx: number) => (
+                            <div key={eIdx} className="space-y-1.5">
+                              <div className="flex items-baseline justify-between text-xs font-semibold text-text">
+                                <div>
+                                  {entry.title}
+                                  {entry.organization && <span className="font-normal text-text-2"> — {entry.organization}</span>}
+                                </div>
+                                <div className="text-[11px] font-normal text-text-3">
+                                  {[entry.location, entry.dates].filter(Boolean).join(' | ')}
+                                </div>
                               </div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+                              {entry.bullets && entry.bullets.length > 0 && (
+                                <ul className="space-y-1.5 text-xs text-text-2 pl-2">
+                                  {entry.bullets.map((b: any, bIdx: number) => {
+                                    const text = typeof b === 'string' ? b : b.text
+                                    const factIds = typeof b === 'object' ? b.fact_ids : []
+                                    return (
+                                      <li key={bIdx} className="flex items-start justify-between gap-3 group">
+                                        <span className="text-text leading-normal">• {text}</span>
+                                        {factIds && factIds.length > 0 && (
+                                          <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                                            {factIds.map((fid: string) => (
+                                              <span
+                                                key={fid}
+                                                title={`Fact ID: ${fid}`}
+                                                className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-bg-elev-2 text-text-3 border border-border/40"
+                                              >
+                                                #{fid.slice(0, 6)}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <ul className="space-y-2 text-xs text-text-2">
+                          {section.bullets.map((b: any, bIdx: number) => (
+                            <li key={bIdx} className="flex items-start justify-between gap-3 group">
+                              <span className="text-text leading-normal">• {b.text}</span>
+                              {b.fact_ids && b.fact_ids.length > 0 && (
+                                <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                                  {b.fact_ids.map((fid: string) => (
+                                    <span
+                                      key={fid}
+                                      title={`Fact ID: ${fid}`}
+                                      className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-bg-elev-2 text-text-3 border border-border/40"
+                                    >
+                                      #{fid.slice(0, 6)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   ))}
                 </div>
